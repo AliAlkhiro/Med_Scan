@@ -59,7 +59,7 @@ Acceptance criteria:
 - Attachments require either `storage_path` or `external_url`.
 - Attachment type is constrained to `pdf`, `image`, `video`, or `link`.
 
-### 1.2 Configure Supabase Storage
+### 1.2 Configure Supabase Storage - Done
 
 References: [design.md sections 10 and 14](design.md#10-attachments)
 
