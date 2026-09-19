@@ -131,7 +131,7 @@ Acceptance criteria:
 - Draft product barcode behaves like not found.
 - Metrics are recorded anonymously.
 
-### 2.2 Build product details page
+### 2.2 Build product details page - Done
 
 References: [design.md sections 5.1, 8, and 9](design.md#9-product-details-content)
 
@@ -149,7 +149,7 @@ Acceptance criteria:
 - The page can be loaded directly from `/product/:barcode`.
 - The pharmacist can return to scanning in one tap.
 
-### 2.3 Build product not-found page
+### 2.3 Build product not-found page - Done
 
 References: [design.md section 5.1](design.md#51-pharmacist-product-lookup)
 

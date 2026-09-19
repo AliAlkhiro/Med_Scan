@@ -72,15 +72,7 @@ function FieldList({
   fields: Array<{ key: keyof ProductLookupDetails; label: string }>;
   product: ProductLookupDetails;
 }) {
-  const visibleFields = fields.flatMap((field) => {
-    const value = product[field.key];
-
-    if (typeof value !== 'string' || value.trim().length === 0) {
-      return [];
-    }
-
-    return [{ ...field, value }];
-  });
+  const visibleFields = getVisibleFields(fields, product);
 
   if (visibleFields.length === 0) {
     return null;
@@ -98,9 +90,25 @@ function FieldList({
   );
 }
 
+function getVisibleFields(
+  fields: Array<{ key: keyof ProductLookupDetails; label: string }>,
+  product: ProductLookupDetails,
+) {
+  return fields.flatMap((field) => {
+    const value = product[field.key];
+
+    if (typeof value !== 'string' || value.trim().length === 0) {
+      return [];
+    }
+
+    return [{ ...field, value }];
+  });
+}
+
 export function ProductPage() {
   const { barcode, product } = useLoaderData() as ProductPageData;
   const reviewedAt = formatDate(product.lastReviewedAt);
+  const hasReferenceNotes = getVisibleFields(detailFields, product).length > 0 || reviewedAt !== null;
 
   return (
     <section className="mx-auto flex min-h-screen w-full max-w-xl flex-col gap-5 px-5 py-6">
@@ -118,13 +126,15 @@ export function ProductPage() {
         <FieldList fields={primaryFields} product={product} />
       </div>
 
-      <div className="grid gap-4 rounded-md bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-bold">Reference notes</h2>
-        <FieldList fields={detailFields} product={product} />
-        {reviewedAt ? (
-          <p className="border-t border-slate-100 pt-3 text-sm text-slate-500">Last reviewed {reviewedAt}</p>
-        ) : null}
-      </div>
+      {hasReferenceNotes ? (
+        <div className="grid gap-4 rounded-md bg-white p-5 shadow-sm">
+          <h2 className="text-lg font-bold">Reference notes</h2>
+          <FieldList fields={detailFields} product={product} />
+          {reviewedAt ? (
+            <p className="border-t border-slate-100 pt-3 text-sm text-slate-500">Last reviewed {reviewedAt}</p>
+          ) : null}
+        </div>
+      ) : null}
 
       {product.attachments.length > 0 ? (
         <div className="grid gap-3 rounded-md bg-white p-5 shadow-sm">
