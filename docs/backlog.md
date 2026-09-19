@@ -167,7 +167,7 @@ Acceptance criteria:
 
 ## Milestone 3: Camera Scanner
 
-### 3.1 Add barcode scanner screen
+### 3.1 Add barcode scanner screen - Done
 
 References: [design.md sections 6 and 8](design.md#8-pharmacist-interface)
 
