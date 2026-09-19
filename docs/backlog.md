@@ -75,7 +75,7 @@ Acceptance criteria:
 - Public users can only open attachments linked to published products.
 - The chosen access model supports PDF, image, and video files.
 
-### 1.3 Add Row Level Security policies
+### 1.3 Add Row Level Security policies - Done
 
 References: [design.md section 14](design.md#14-security-and-permissions)
 
@@ -94,7 +94,7 @@ Acceptance criteria:
 - Authenticated admins can perform all MVP admin actions.
 - Anonymous metrics can be inserted without pharmacist, patient, or pharmacy identity.
 
-### 1.4 Add seed data for local testing
+### 1.4 Add seed data for local testing - Done
 
 References: [design.md sections 9, 10, and 17](design.md#17-mvp-scope)
 
