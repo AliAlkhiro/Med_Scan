@@ -185,7 +185,7 @@ Acceptance criteria:
 - The scanner shows clear permission, loading, scanning, and error states.
 - A successful scan stops or pauses scanning before navigation.
 
-### 3.2 Add scanner device controls
+### 3.2 Add scanner device controls - Done
 
 References: [design.md section 8](design.md#8-pharmacist-interface)
 
