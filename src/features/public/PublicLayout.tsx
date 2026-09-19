@@ -2,7 +2,7 @@ import { Outlet } from 'react-router-dom';
 
 export function PublicLayout() {
   return (
-    <main className="min-h-screen bg-field text-ink">
+    <main className="min-h-screen bg-field text-ink antialiased">
       <Outlet />
     </main>
   );

@@ -6,7 +6,7 @@ Each item should be small enough to implement, test, and review independently. L
 
 ## Milestone 0: Project Foundation
 
-### 0.1 Create the frontend app shell
+### 0.1 Create the frontend app shell - Done
 
 References: [design.md sections 6 and 7](design.md#6-recommended-tech-stack)
 
@@ -24,7 +24,7 @@ Acceptance criteria:
 - Routes exist for `/`, `/product/:barcode`, `/not-found/:barcode`, `/admin/login`, `/admin/products`, `/admin/products/new`, `/admin/products/:id`, and `/admin/metrics`.
 - Admin code is route-separated so it can be lazy-loaded later.
 
-### 0.2 Add shared application layout and UI primitives
+### 0.2 Add shared application layout and UI primitives - Done
 
 References: [design.md sections 8 and 13](design.md#8-pharmacist-interface)
 
