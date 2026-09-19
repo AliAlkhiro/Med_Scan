@@ -42,7 +42,7 @@ Acceptance criteria:
 
 ## Milestone 1: Supabase Backend Baseline
 
-### 1.1 Create database schema migrations
+### 1.1 Create database schema migrations - Done
 
 References: [design.md section 11](design.md#11-data-model)
 
