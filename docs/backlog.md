@@ -201,7 +201,7 @@ Acceptance criteria:
 - Permission denial shows an understandable recovery path.
 - Scanner failure does not trap the user on a broken screen.
 
-### 3.3 Field-test scanner behavior
+### 3.3 Field-test scanner behavior - Done
 
 References: [design.md sections 17 and 20](design.md#20-recommended-build-order)
 

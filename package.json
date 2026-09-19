@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:ngrok": "vite --host 127.0.0.1 --port 5175 --strictPort",
+    "ngrok": "ngrok http 5175",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint ."

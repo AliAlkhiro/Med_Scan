@@ -1,16 +1,117 @@
 import { useEffect, useRef, useState } from 'react';
-import type { IScannerControls } from '@zxing/browser';
-import { Flashlight, FlashlightOff, RotateCcw, ScanLine } from 'lucide-react';
+import { DecodeHintType } from '@zxing/library';
+import { Camera, Flashlight, FlashlightOff, RotateCcw, ScanLine } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { isSupabaseConfigured } from '../../../config/env';
 import { Button, ErrorState, LoadingState, StatusBadge } from '../../../shared/ui';
 
-type ScannerState = 'loading' | 'scanning' | 'found' | 'error';
+type ScannerState = 'loading' | 'ready' | 'scanning' | 'found' | 'error';
 
 type CameraErrorDetails = {
   message: string;
   recovery: string;
 };
+
+type BarcodeCameraConstraints = MediaTrackConstraints & {
+  focusMode?: ConstrainDOMString;
+  advanced?: Array<MediaTrackConstraintSet & { focusMode?: string }>;
+};
+
+type TorchCapabilities = MediaTrackCapabilities & {
+  torch?: boolean;
+};
+
+type TorchConstraints = MediaTrackConstraintSet & {
+  torch?: boolean;
+};
+
+type NativeBarcodeDetector = {
+  detect(source: CanvasImageSource): Promise<Array<{ rawValue?: string }>>;
+};
+
+type NativeBarcodeDetectorConstructor = new (options?: { formats?: string[] }) => NativeBarcodeDetector;
+
+type WindowWithBarcodeDetector = Window & {
+  BarcodeDetector?: NativeBarcodeDetectorConstructor;
+};
+
+const barcodeDetectorFormats = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'];
+
+function createCanvas(width: number, height: number) {
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(width));
+  canvas.height = Math.max(1, Math.round(height));
+
+  return canvas;
+}
+
+function drawVideoFrame(video: HTMLVideoElement) {
+  const canvas = createCanvas(video.videoWidth, video.videoHeight);
+  canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  return canvas;
+}
+
+function drawVideoCrop(video: HTMLVideoElement, cropElement: HTMLElement) {
+  const videoRect = video.getBoundingClientRect();
+  const cropRect = cropElement.getBoundingClientRect();
+  const scale = Math.max(videoRect.width / video.videoWidth, videoRect.height / video.videoHeight);
+  const renderedWidth = video.videoWidth * scale;
+  const renderedHeight = video.videoHeight * scale;
+  const offsetX = (videoRect.width - renderedWidth) / 2;
+  const offsetY = (videoRect.height - renderedHeight) / 2;
+  const cropPaddingX = cropRect.width * 0.12;
+  const cropPaddingY = cropRect.height * 0.12;
+  const sourceLeft = (cropRect.left - videoRect.left - offsetX - cropPaddingX) / scale;
+  const sourceTop = (cropRect.top - videoRect.top - offsetY - cropPaddingY) / scale;
+  const sourceWidth = (cropRect.width + cropPaddingX * 2) / scale;
+  const sourceHeight = (cropRect.height + cropPaddingY * 2) / scale;
+  const clampedLeft = Math.max(0, sourceLeft);
+  const clampedTop = Math.max(0, sourceTop);
+  const clampedRight = Math.min(video.videoWidth, sourceLeft + sourceWidth);
+  const clampedBottom = Math.min(video.videoHeight, sourceTop + sourceHeight);
+  const canvas = createCanvas(clampedRight - clampedLeft, clampedBottom - clampedTop);
+
+  canvas
+    .getContext('2d')
+    ?.drawImage(video, clampedLeft, clampedTop, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
+
+  return canvas;
+}
+
+function drawHorizontalBand(source: HTMLCanvasElement, heightRatio: number) {
+  const bandHeight = Math.round(source.height * heightRatio);
+  const bandTop = Math.round((source.height - bandHeight) / 2);
+  const canvas = createCanvas(source.width, bandHeight);
+  canvas.getContext('2d')?.drawImage(source, 0, bandTop, source.width, bandHeight, 0, 0, canvas.width, canvas.height);
+
+  return canvas;
+}
+
+async function detectBarcodeNatively(canvases: HTMLCanvasElement[]) {
+  const BarcodeDetector = (window as WindowWithBarcodeDetector).BarcodeDetector;
+
+  if (!BarcodeDetector) {
+    return '';
+  }
+
+  const detector = new BarcodeDetector({ formats: barcodeDetectorFormats });
+
+  for (const canvas of canvases) {
+    try {
+      const [barcode] = await detector.detect(canvas);
+      const value = barcode?.rawValue?.trim();
+
+      if (value) {
+        return value;
+      }
+    } catch {
+      return '';
+    }
+  }
+
+  return '';
+}
 
 function getCameraErrorDetails(error: unknown): CameraErrorDetails {
   if (error instanceof DOMException) {
@@ -45,10 +146,12 @@ function getCameraErrorDetails(error: unknown): CameraErrorDetails {
 export function ScannerPage() {
   const navigate = useNavigate();
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const controlsRef = useRef<IScannerControls | null>(null);
+  const guideRef = useRef<HTMLDivElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const scanLockedRef = useRef(false);
   const [scannerState, setScannerState] = useState<ScannerState>('loading');
   const [cameraError, setCameraError] = useState<CameraErrorDetails | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchEnabled, setTorchEnabled] = useState(false);
@@ -56,7 +159,6 @@ export function ScannerPage() {
 
   useEffect(() => {
     let isMounted = true;
-    let localControls: IScannerControls | null = null;
 
     async function startScanner() {
       if (!videoRef.current) {
@@ -66,52 +168,39 @@ export function ScannerPage() {
       scanLockedRef.current = false;
       setScannerState('loading');
       setCameraError(null);
+      setScanError(null);
       setTorchSupported(false);
       setTorchEnabled(false);
       setTorchError(null);
 
       try {
-        const { BarcodeFormat, BrowserMultiFormatReader } = await import('@zxing/browser');
+        const cameraConstraints: MediaStreamConstraints = {
+          audio: false,
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            focusMode: { ideal: 'continuous' },
+            advanced: [{ focusMode: 'continuous' }],
+          } as BarcodeCameraConstraints,
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(cameraConstraints);
 
         if (!isMounted || !videoRef.current) {
+          stream.getTracks().forEach((track) => track.stop());
           return;
         }
 
-        const reader = new BrowserMultiFormatReader(undefined, {
-          delayBetweenScanAttempts: 180,
-          delayBetweenScanSuccess: 500,
-        });
-
-        reader.possibleFormats = [
-          BarcodeFormat.EAN_13,
-          BarcodeFormat.EAN_8,
-          BarcodeFormat.UPC_A,
-          BarcodeFormat.UPC_E,
-          BarcodeFormat.CODE_128,
-        ];
-
-        const controls = await reader.decodeFromVideoDevice(undefined, videoRef.current, (result) => {
-          const barcode = result?.getText().trim();
-
-          if (!barcode || scanLockedRef.current) {
-            return;
-          }
-
-          scanLockedRef.current = true;
-          controlsRef.current?.stop();
-
-          if (isMounted) {
-            setScannerState('found');
-            navigate(`/product/${encodeURIComponent(barcode)}`);
-          }
-        });
-
-        localControls = controls;
-        controlsRef.current = controls;
+        streamRef.current = stream;
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
 
         if (isMounted) {
-          setTorchSupported(Boolean(controls.switchTorch));
-          setScannerState('scanning');
+          const videoTrack = stream.getVideoTracks()[0];
+          const capabilities = videoTrack?.getCapabilities() as TorchCapabilities | undefined;
+          setTorchSupported(Boolean(capabilities?.torch));
+          setScannerState('ready');
         }
       } catch (error) {
         if (isMounted) {
@@ -125,9 +214,8 @@ export function ScannerPage() {
 
     return () => {
       isMounted = false;
-      localControls?.stop();
-      controlsRef.current?.stop();
-      controlsRef.current = null;
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
       scanLockedRef.current = true;
       setTorchSupported(false);
       setTorchEnabled(false);
@@ -135,26 +223,27 @@ export function ScannerPage() {
   }, [navigate, retryCount]);
 
   const retryScanner = () => {
-    controlsRef.current?.stop();
-    controlsRef.current = null;
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
     setTorchSupported(false);
     setTorchEnabled(false);
     setTorchError(null);
+    setScanError(null);
     setRetryCount((current) => current + 1);
   };
 
   const toggleTorch = async () => {
     const nextValue = !torchEnabled;
-    const switchTorch = controlsRef.current?.switchTorch;
+    const videoTrack = streamRef.current?.getVideoTracks()[0];
 
-    if (!switchTorch) {
+    if (!videoTrack) {
       return;
     }
 
     setTorchError(null);
 
     try {
-      await switchTorch(nextValue);
+      await videoTrack.applyConstraints({ advanced: [{ torch: nextValue } as TorchConstraints] });
       setTorchEnabled(nextValue);
     } catch {
       setTorchEnabled(false);
@@ -162,11 +251,84 @@ export function ScannerPage() {
     }
   };
 
+  const scanCurrentPhoto = async () => {
+    const video = videoRef.current;
+    const guide = guideRef.current;
+
+    if (!video || !guide || scanLockedRef.current || scannerState !== 'ready') {
+      return;
+    }
+
+    if (!video.videoWidth || !video.videoHeight) {
+      setScanError('Camera preview is not ready yet.');
+      return;
+    }
+
+    setScannerState('scanning');
+    setScanError(null);
+
+    try {
+      const { BarcodeFormat, BrowserMultiFormatReader } = await import('@zxing/browser');
+      const formats = [
+        BarcodeFormat.EAN_13,
+        BarcodeFormat.EAN_8,
+        BarcodeFormat.UPC_A,
+        BarcodeFormat.UPC_E,
+        BarcodeFormat.CODE_128,
+      ];
+      const hints = new Map();
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
+      hints.set(DecodeHintType.TRY_HARDER, true);
+
+      const reader = new BrowserMultiFormatReader(hints);
+      const fullFrame = drawVideoFrame(video);
+      const guideFrame = drawVideoCrop(video, guide);
+      const candidates = [
+        guideFrame,
+        drawHorizontalBand(guideFrame, 0.38),
+        drawHorizontalBand(guideFrame, 0.58),
+        fullFrame,
+        drawHorizontalBand(fullFrame, 0.32),
+        drawHorizontalBand(fullFrame, 0.5),
+      ];
+
+      let barcode = await detectBarcodeNatively(candidates);
+
+      if (!barcode) {
+        for (const candidate of candidates) {
+          try {
+            barcode = reader.decodeFromCanvas(candidate).getText().trim();
+
+            if (barcode) {
+              break;
+            }
+          } catch {
+            // Keep trying the remaining crops.
+          }
+        }
+      }
+
+      if (!barcode) {
+        throw new Error('No barcode found');
+      }
+
+      scanLockedRef.current = true;
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      setScannerState('found');
+      navigate(`/product/${encodeURIComponent(barcode)}`);
+    } catch {
+      setScanError('No barcode found. Keep the full barcode visible inside the box and scan again.');
+      setScannerState('ready');
+    }
+  };
+
   const statusLabel = {
     error: 'Camera unavailable',
     found: 'Barcode found',
     loading: 'Starting camera',
-    scanning: 'Scanning',
+    ready: 'Ready',
+    scanning: 'Checking photo',
   }[scannerState];
 
   return (
@@ -195,7 +357,7 @@ export function ScannerPage() {
           <button
             aria-label={torchEnabled ? 'Turn flashlight off' : 'Turn flashlight on'}
             className="absolute right-4 top-4 z-10 grid h-12 w-12 place-items-center rounded-full bg-white/95 text-ink shadow-lg ring-1 ring-white/30 transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-palm focus-visible:ring-offset-2 focus-visible:ring-offset-ink disabled:opacity-60"
-            disabled={scannerState !== 'scanning'}
+            disabled={scannerState !== 'ready'}
             onClick={toggleTorch}
             title={torchEnabled ? 'Turn flashlight off' : 'Turn flashlight on'}
             type="button"
@@ -203,7 +365,10 @@ export function ScannerPage() {
             {torchEnabled ? <FlashlightOff aria-hidden="true" size={22} /> : <Flashlight aria-hidden="true" size={22} />}
           </button>
         ) : null}
-        <div className="relative aspect-[3/4] w-full max-w-[20rem] rounded-lg border-2 border-white/75 shadow-[0_0_0_999px_rgba(15,23,42,0.28)]">
+        <div
+          className="relative aspect-[3/4] w-full max-w-[20rem] rounded-lg border-2 border-white/75 shadow-[0_0_0_999px_rgba(15,23,42,0.28)]"
+          ref={guideRef}
+        >
           <div className="absolute left-5 right-5 top-1/2 h-0.5 bg-coral shadow-[0_0_18px_rgba(220,107,79,0.85)]" />
           {scannerState === 'loading' ? (
             <div className="absolute inset-x-5 top-1/2 mt-8">
@@ -222,6 +387,24 @@ export function ScannerPage() {
         <p className="mt-3 rounded-md bg-orange-50 px-3 py-2 text-sm font-medium text-orange-800 ring-1 ring-orange-100">
           {torchError}
         </p>
+      ) : null}
+
+      {scanError ? (
+        <p className="mt-3 rounded-md bg-orange-50 px-3 py-2 text-sm font-medium text-orange-800 ring-1 ring-orange-100">
+          {scanError}
+        </p>
+      ) : null}
+
+      {scannerState !== 'error' ? (
+        <div className="mt-4 grid gap-3">
+          <Button
+            disabled={scannerState !== 'ready'}
+            icon={<Camera aria-hidden="true" size={18} />}
+            onClick={scanCurrentPhoto}
+          >
+            Scan photo
+          </Button>
+        </div>
       ) : null}
 
       {scannerState === 'error' && (
