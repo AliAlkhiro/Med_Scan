@@ -113,7 +113,7 @@ Acceptance criteria:
 
 ## Milestone 2: Public Pharmacist Lookup
 
-### 2.1 Build product lookup service
+### 2.1 Build product lookup service - Done
 
 References: [design.md section 12](design.md#12-api-design)
 

@@ -3,7 +3,8 @@ import { createBrowserRouter } from 'react-router-dom';
 import { PageLoading } from './shared/PageLoading';
 import { PublicLayout } from './features/public/PublicLayout';
 import { ScannerPage } from './features/public/pages/ScannerPage';
-import { ProductPage } from './features/public/pages/ProductPage';
+import { ProductPage, ProductPageError } from './features/public/pages/ProductPage';
+import { productPageLoader } from './features/public/pages/productPageLoader';
 import { NotFoundPage } from './features/public/pages/NotFoundPage';
 
 const AdminLayout = lazy(() =>
@@ -35,7 +36,12 @@ export const router = createBrowserRouter([
     element: <PublicLayout />,
     children: [
       { index: true, element: <ScannerPage /> },
-      { path: 'product/:barcode', element: <ProductPage /> },
+      {
+        path: 'product/:barcode',
+        element: <ProductPage />,
+        errorElement: <ProductPageError />,
+        loader: productPageLoader,
+      },
       { path: 'not-found/:barcode', element: <NotFoundPage /> },
     ],
   },
