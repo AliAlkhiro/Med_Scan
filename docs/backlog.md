@@ -319,7 +319,7 @@ Acceptance criteria:
 - Uploaded file metadata is saved with the product.
 - Public product details still return metadata only.
 
-### 5.3 Build public attachment opening
+### 5.3 Build public attachment opening - Done
 
 References: [design.md sections 5.2 and 12](design.md#12-api-design)
 

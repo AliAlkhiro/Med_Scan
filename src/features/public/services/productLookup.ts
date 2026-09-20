@@ -30,6 +30,15 @@ export type ProductLookupDetails = {
   warnings: string | null;
 };
 
+type AttachmentOpenRpcResponse = {
+  attachment?: {
+    externalUrl: string | null;
+    id: string;
+    productId: string;
+    storagePath: string | null;
+  } | null;
+} | null;
+
 type LookupRpcResponse = {
   product?: ProductLookupDetails | null;
 } | null;
@@ -73,6 +82,70 @@ export async function recordScanMetric(result: ProductLookupResult, barcode: str
     barcode: normalizedBarcode,
     event_type: result.status === 'found' ? 'scan_found' : 'scan_not_found',
     product_id: result.status === 'found' ? result.product.id : null,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function getAttachmentOpenUrl({
+  attachmentId,
+  productId,
+}: {
+  attachmentId: string;
+  productId: string;
+}) {
+  const supabase = getSupabaseClient();
+
+  const { data, error } = await supabase.rpc('get_published_attachment_open_target', {
+    p_attachment_id: attachmentId,
+    p_product_id: productId,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const result = data as AttachmentOpenRpcResponse;
+  const attachment = result?.attachment;
+
+  if (!attachment) {
+    throw new Error('Attachment is not available.');
+  }
+
+  if (attachment.externalUrl) {
+    return attachment.externalUrl;
+  }
+
+  if (!attachment.storagePath) {
+    throw new Error('Attachment does not have an openable target.');
+  }
+
+  const { data: signedUrl, error: signedUrlError } = await supabase.storage
+    .from('attachments')
+    .createSignedUrl(attachment.storagePath, 60 * 10);
+
+  if (signedUrlError) {
+    throw new Error(signedUrlError.message);
+  }
+
+  return signedUrl.signedUrl;
+}
+
+export async function recordAttachmentOpenMetric({
+  attachmentId,
+  productId,
+}: {
+  attachmentId: string;
+  productId: string;
+}) {
+  const supabase = getSupabaseClient();
+
+  const { error } = await supabase.from('usage_metrics').insert({
+    attachment_id: attachmentId,
+    event_type: 'attachment_opened',
+    product_id: productId,
   });
 
   if (error) {

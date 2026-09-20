@@ -1,8 +1,14 @@
-import { FileText, Image, Link as LinkIcon, RotateCcw, Video } from 'lucide-react';
+import { useState } from 'react';
+import { ExternalLink, FileText, Image, Link as LinkIcon, LoaderCircle, RotateCcw, Video } from 'lucide-react';
 import { Link, useLoaderData } from 'react-router-dom';
 import { isSupabaseConfigured } from '../../../config/env';
 import { Button, ErrorState, StatusBadge } from '../../../shared/ui';
-import type { ProductAttachment, ProductLookupDetails } from '../services/productLookup';
+import {
+  getAttachmentOpenUrl,
+  recordAttachmentOpenMetric,
+  type ProductAttachment,
+  type ProductLookupDetails,
+} from '../services/productLookup';
 import type { ProductPageData } from './productPageLoader';
 
 const primaryFields: Array<{ key: keyof ProductLookupDetails; label: string }> = [
@@ -63,6 +69,80 @@ function attachmentIcon(type: ProductAttachment['type']) {
   }
 
   return <FileText aria-hidden="true" size={18} />;
+}
+
+function AttachmentOpenButton({
+  attachment,
+  productId,
+}: {
+  attachment: ProductAttachment;
+  productId: string;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  const [isOpening, setIsOpening] = useState(false);
+
+  async function handleOpenAttachment() {
+    setError(null);
+    setIsOpening(true);
+
+    const openedWindow = window.open('about:blank', '_blank');
+
+    if (openedWindow) {
+      openedWindow.opener = null;
+    }
+
+    try {
+      const url = await getAttachmentOpenUrl({
+        attachmentId: attachment.id,
+        productId,
+      });
+
+      try {
+        await recordAttachmentOpenMetric({
+          attachmentId: attachment.id,
+          productId,
+        });
+      } catch (metricError) {
+        console.warn('Unable to record attachment-open metric', metricError);
+      }
+
+      if (openedWindow) {
+        openedWindow.location.href = url;
+      } else {
+        window.location.assign(url);
+      }
+    } catch (openError) {
+      if (openedWindow) {
+        openedWindow.close();
+      }
+
+      setError(openError instanceof Error ? openError.message : 'Attachment could not be opened.');
+    } finally {
+      setIsOpening(false);
+    }
+  }
+
+  return (
+    <div className="grid justify-items-end gap-1">
+      <Button
+        aria-label={`Open ${attachment.label}`}
+        className="min-h-10 px-3"
+        disabled={isOpening}
+        icon={
+          isOpening ? (
+            <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" />
+          ) : (
+            <ExternalLink aria-hidden="true" size={16} />
+          )
+        }
+        onClick={handleOpenAttachment}
+        tone="secondary"
+      >
+        Open
+      </Button>
+      {error ? <p className="max-w-36 text-right text-xs font-medium text-coral">{error}</p> : null}
+    </div>
+  );
 }
 
 function FieldList({
@@ -159,7 +239,7 @@ export function ProductPage() {
                       </p>
                     </div>
                   </div>
-                  <StatusBadge>Metadata</StatusBadge>
+                  <AttachmentOpenButton attachment={attachment} productId={product.id} />
                 </div>
               );
             })}
