@@ -371,7 +371,7 @@ Acceptance criteria:
 
 ## Milestone 7: Slow Internet and PWA Readiness
 
-### 7.1 Add PWA app shell caching
+### 7.1 Add PWA app shell caching - Done
 
 References: [design.md sections 6, 13, and 17](design.md#13-slow-internet-strategy)
 
