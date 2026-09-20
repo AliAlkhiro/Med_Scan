@@ -354,7 +354,7 @@ Acceptance criteria:
 - Query results match the event types in the design document.
 - Queries are efficient enough for MVP volumes.
 
-### 6.2 Build admin metrics page
+### 6.2 Build admin metrics page - Done
 
 References: [design.md sections 7 and 16](design.md#16-metrics)
 
