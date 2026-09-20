@@ -388,7 +388,7 @@ Acceptance criteria:
 - Product data still comes from backend lookup.
 - Attachments are fetched only after user action.
 
-### 7.2 Cache most recently viewed product locally
+### 7.2 Cache most recently viewed product locally - Done
 
 References: [design.md section 13](design.md#13-slow-internet-strategy)
 

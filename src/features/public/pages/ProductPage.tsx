@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ExternalLink, FileText, Image, Link as LinkIcon, LoaderCircle, RotateCcw, Video } from 'lucide-react';
+import { AlertTriangle, ExternalLink, FileText, Image, Link as LinkIcon, LoaderCircle, RotateCcw, Video } from 'lucide-react';
 import { Link, useLoaderData } from 'react-router-dom';
 import { isSupabaseConfigured } from '../../../config/env';
 import { Button, ErrorState, StatusBadge } from '../../../shared/ui';
@@ -186,8 +186,9 @@ function getVisibleFields(
 }
 
 export function ProductPage() {
-  const { barcode, product } = useLoaderData() as ProductPageData;
+  const { barcode, cachedAt, isCached, product } = useLoaderData() as ProductPageData;
   const reviewedAt = formatDate(product.lastReviewedAt);
+  const cachedAtLabel = formatDate(cachedAt);
   const hasReferenceNotes = getVisibleFields(detailFields, product).length > 0 || reviewedAt !== null;
 
   return (
@@ -197,6 +198,21 @@ export function ProductPage() {
         <h1 className="mt-1 text-2xl font-bold">{product.tradeName}</h1>
         <p className="mt-2 text-sm text-slate-600">Barcode {barcode}</p>
       </header>
+
+      {isCached ? (
+        <div className="rounded-md border border-orange-200 bg-orange-50 px-4 py-3 text-orange-900">
+          <div className="flex gap-3">
+            <AlertTriangle aria-hidden="true" className="mt-0.5 h-5 w-5 flex-none" />
+            <div>
+              <p className="text-sm font-bold">Showing cached product details</p>
+              <p className="mt-1 text-sm leading-6">
+                The live lookup could not be completed. Use these details as stale cached content
+                {cachedAtLabel ? ` from ${cachedAtLabel}` : ''}.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid gap-4 rounded-md bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between gap-3">
