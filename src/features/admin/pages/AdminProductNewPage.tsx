@@ -1,31 +1,35 @@
-import { Save } from 'lucide-react';
-import { Button, Select, Textarea, TextInput } from '../../../shared/ui';
+import { ArrowLeft } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { AdminProductForm } from '../components/AdminProductForm';
+import { createAdminProduct, createEmptyProductFormValues, type AdminProductFormValues } from '../services/adminProducts';
 
 export function AdminProductNewPage() {
+  const navigate = useNavigate();
+
+  const handleCreate = async (values: AdminProductFormValues) => {
+    const productId = await createAdminProduct(values);
+    navigate(`/admin/products/${productId}`, {
+      replace: true,
+      state: { savedMessage: values.isPublished ? 'Product created and published.' : 'Draft product created.' },
+    });
+  };
+
   return (
-    <section className="rounded-md bg-white p-6 shadow-sm">
-      <div className="mb-5">
-        <h2 className="text-xl font-bold">New product</h2>
-        <p className="mt-2 text-sm text-slate-600">Create form wiring will be added with product management.</p>
-      </div>
-      <form className="grid gap-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          <TextInput label="Trade name" placeholder="Product trade name" />
-          <TextInput label="Generic name" placeholder="Active ingredient" />
-          <TextInput label="Strength" placeholder="500 mg" />
-          <TextInput label="Dosage form" placeholder="Tablet" />
-        </div>
-        <Textarea label="Counseling notes" placeholder="Short pharmacist-facing notes" />
-        <Select label="Publication status" defaultValue="draft">
-          <option value="draft">Draft</option>
-          <option value="published">Published</option>
-        </Select>
+    <section className="grid gap-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <Button icon={<Save aria-hidden="true" size={18} />} type="submit">
-            Save product
-          </Button>
+          <h2 className="text-xl font-bold">New product</h2>
+          <p className="mt-1 text-sm text-slate-600">Create a draft or publish once the required lookup fields are ready.</p>
         </div>
-      </form>
+        <Link
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+          to="/admin/products"
+        >
+          <ArrowLeft aria-hidden="true" size={17} />
+          Products
+        </Link>
+      </div>
+      <AdminProductForm initialValues={createEmptyProductFormValues()} onSubmit={handleCreate} />
     </section>
   );
 }

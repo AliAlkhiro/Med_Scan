@@ -251,7 +251,7 @@ Acceptance criteria:
 - The list makes publication status obvious.
 - Admins can navigate to create and edit screens.
 
-### 4.3 Build product create/edit form
+### 4.3 Build product create/edit form - Done
 
 References: [design.md sections 9 and 15](design.md#15-content-quality-and-safety)
 

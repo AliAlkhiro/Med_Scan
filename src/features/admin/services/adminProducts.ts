@@ -9,13 +9,77 @@ export type AdminProductListItem = {
   updatedAt: string;
 };
 
+export type AdminProductFormValues = {
+  applicationInstructions: string;
+  barcode: string;
+  contraindications: string;
+  counselingNotes: string;
+  countryOfOrigin: string;
+  dosageForm: string;
+  extraNotes: string;
+  genericName: string;
+  indications: string;
+  isPublished: boolean;
+  lastReviewedAt: string;
+  manufacturer: string;
+  packDescription: string;
+  storageInstructions: string;
+  strength: string;
+  therapeuticClass: string;
+  tradeName: string;
+  warnings: string;
+};
+
+export type AdminProductDetails = AdminProductFormValues & {
+  id: string;
+  updatedAt: string;
+};
+
 type ProductRow = {
+  application_instructions?: string | null;
+  contraindications?: string | null;
+  counseling_notes?: string | null;
+  country_of_origin?: string | null;
+  dosage_form?: string | null;
+  extra_notes?: string | null;
   generic_name: string | null;
   id: string;
+  indications?: string | null;
   is_published: boolean;
   last_reviewed_at: string | null;
+  manufacturer?: string | null;
+  pack_description?: string | null;
+  storage_instructions?: string | null;
+  strength?: string | null;
+  therapeutic_class?: string | null;
   trade_name: string;
   updated_at: string;
+  warnings?: string | null;
+};
+
+type BarcodeRow = {
+  barcode: string;
+  id: string;
+};
+
+type ProductMutation = {
+  application_instructions: string | null;
+  contraindications: string | null;
+  counseling_notes: string | null;
+  country_of_origin: string | null;
+  dosage_form: string | null;
+  extra_notes: string | null;
+  generic_name: string | null;
+  indications: string | null;
+  is_published: boolean;
+  last_reviewed_at: string | null;
+  manufacturer: string | null;
+  pack_description: string | null;
+  storage_instructions: string | null;
+  strength: string | null;
+  therapeutic_class: string | null;
+  trade_name: string;
+  warnings: string | null;
 };
 
 export async function listAdminProducts(): Promise<AdminProductListItem[]> {
@@ -38,4 +102,235 @@ export async function listAdminProducts(): Promise<AdminProductListItem[]> {
     tradeName: product.trade_name,
     updatedAt: product.updated_at,
   }));
+}
+
+function normalizeOptional(value: string) {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeDate(value: string) {
+  if (!value) {
+    return null;
+  }
+
+  return new Date(`${value}T00:00:00.000Z`).toISOString();
+}
+
+function toDateInputValue(value: string | null | undefined) {
+  return value ? value.slice(0, 10) : '';
+}
+
+function toProductMutation(values: AdminProductFormValues): ProductMutation {
+  return {
+    application_instructions: normalizeOptional(values.applicationInstructions),
+    contraindications: normalizeOptional(values.contraindications),
+    counseling_notes: normalizeOptional(values.counselingNotes),
+    country_of_origin: normalizeOptional(values.countryOfOrigin),
+    dosage_form: normalizeOptional(values.dosageForm),
+    extra_notes: normalizeOptional(values.extraNotes),
+    generic_name: normalizeOptional(values.genericName),
+    indications: normalizeOptional(values.indications),
+    is_published: values.isPublished,
+    last_reviewed_at: normalizeDate(values.lastReviewedAt),
+    manufacturer: normalizeOptional(values.manufacturer),
+    pack_description: normalizeOptional(values.packDescription),
+    storage_instructions: normalizeOptional(values.storageInstructions),
+    strength: normalizeOptional(values.strength),
+    therapeutic_class: normalizeOptional(values.therapeuticClass),
+    trade_name: values.tradeName.trim(),
+    warnings: normalizeOptional(values.warnings),
+  };
+}
+
+function getDuplicateBarcodeMessage(error: unknown) {
+  if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
+    return 'That barcode is already assigned to another product.';
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return 'Product could not be saved.';
+}
+
+export function createEmptyProductFormValues(): AdminProductFormValues {
+  return {
+    applicationInstructions: '',
+    barcode: '',
+    contraindications: '',
+    counselingNotes: '',
+    countryOfOrigin: '',
+    dosageForm: '',
+    extraNotes: '',
+    genericName: '',
+    indications: '',
+    isPublished: false,
+    lastReviewedAt: '',
+    manufacturer: '',
+    packDescription: '',
+    storageInstructions: '',
+    strength: '',
+    therapeuticClass: '',
+    tradeName: '',
+    warnings: '',
+  };
+}
+
+export async function getAdminProduct(productId: string): Promise<AdminProductDetails> {
+  const supabase = getSupabaseClient();
+
+  const { data: product, error } = await supabase
+    .from('products')
+    .select(
+      `
+        id,
+        trade_name,
+        generic_name,
+        strength,
+        dosage_form,
+        manufacturer,
+        country_of_origin,
+        pack_description,
+        therapeutic_class,
+        indications,
+        counseling_notes,
+        warnings,
+        contraindications,
+        storage_instructions,
+        application_instructions,
+        extra_notes,
+        is_published,
+        last_reviewed_at,
+        updated_at
+      `,
+    )
+    .eq('id', productId)
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const { data: barcodes, error: barcodeError } = await supabase
+    .from('product_barcodes')
+    .select('id, barcode')
+    .eq('product_id', productId)
+    .order('created_at', { ascending: true })
+    .limit(1);
+
+  if (barcodeError) {
+    throw new Error(barcodeError.message);
+  }
+
+  const productRow = product as ProductRow;
+  const primaryBarcode = ((barcodes ?? []) as BarcodeRow[])[0]?.barcode ?? '';
+
+  return {
+    applicationInstructions: productRow.application_instructions ?? '',
+    barcode: primaryBarcode,
+    contraindications: productRow.contraindications ?? '',
+    counselingNotes: productRow.counseling_notes ?? '',
+    countryOfOrigin: productRow.country_of_origin ?? '',
+    dosageForm: productRow.dosage_form ?? '',
+    extraNotes: productRow.extra_notes ?? '',
+    genericName: productRow.generic_name ?? '',
+    id: productRow.id,
+    indications: productRow.indications ?? '',
+    isPublished: productRow.is_published,
+    lastReviewedAt: toDateInputValue(productRow.last_reviewed_at),
+    manufacturer: productRow.manufacturer ?? '',
+    packDescription: productRow.pack_description ?? '',
+    storageInstructions: productRow.storage_instructions ?? '',
+    strength: productRow.strength ?? '',
+    therapeuticClass: productRow.therapeutic_class ?? '',
+    tradeName: productRow.trade_name,
+    updatedAt: productRow.updated_at,
+    warnings: productRow.warnings ?? '',
+  };
+}
+
+export async function createAdminProduct(values: AdminProductFormValues): Promise<string> {
+  const supabase = getSupabaseClient();
+
+  const { data: product, error } = await supabase
+    .from('products')
+    .insert(toProductMutation(values))
+    .select('id')
+    .single();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const productId = (product as { id: string }).id;
+  const barcode = values.barcode.trim();
+
+  if (barcode) {
+    const { error: barcodeError } = await supabase.from('product_barcodes').insert({
+      barcode,
+      product_id: productId,
+    });
+
+    if (barcodeError) {
+      await supabase.from('products').delete().eq('id', productId);
+      throw new Error(getDuplicateBarcodeMessage(barcodeError));
+    }
+  }
+
+  return productId;
+}
+
+export async function updateAdminProduct(productId: string, values: AdminProductFormValues): Promise<void> {
+  const supabase = getSupabaseClient();
+
+  const { data: existingBarcodes, error: loadBarcodeError } = await supabase
+    .from('product_barcodes')
+    .select('id, barcode')
+    .eq('product_id', productId)
+    .order('created_at', { ascending: true });
+
+  if (loadBarcodeError) {
+    throw new Error(loadBarcodeError.message);
+  }
+
+  const barcode = values.barcode.trim();
+  const [primaryBarcode] = (existingBarcodes ?? []) as BarcodeRow[];
+
+  if (!barcode && primaryBarcode) {
+    const { error: deleteError } = await supabase.from('product_barcodes').delete().eq('id', primaryBarcode.id);
+
+    if (deleteError) {
+      throw new Error(deleteError.message);
+    }
+  }
+
+  if (barcode && primaryBarcode && primaryBarcode.barcode !== barcode) {
+    const { error: updateBarcodeError } = await supabase
+      .from('product_barcodes')
+      .update({ barcode })
+      .eq('id', primaryBarcode.id);
+
+    if (updateBarcodeError) {
+      throw new Error(getDuplicateBarcodeMessage(updateBarcodeError));
+    }
+  }
+
+  if (barcode && !primaryBarcode) {
+    const { error: insertBarcodeError } = await supabase.from('product_barcodes').insert({
+      barcode,
+      product_id: productId,
+    });
+
+    if (insertBarcodeError) {
+      throw new Error(getDuplicateBarcodeMessage(insertBarcodeError));
+    }
+  }
+
+  const { error } = await supabase.from('products').update(toProductMutation(values)).eq('id', productId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
 }
