@@ -48,6 +48,32 @@ For each Supabase project:
 
 The frontend only needs the public Supabase URL and anon key. Do not put service-role keys, database passwords, or other server secrets in Vite environment variables.
 
+### First Admin User
+
+Admin login has two checks:
+
+1. The email/password must exist in Supabase Authentication.
+2. The authenticated user's UUID must be listed in `public.admin_users`.
+
+To bootstrap the first admin:
+
+1. Open the Supabase dashboard for the target environment.
+2. Go to Authentication -> Users.
+3. Create the admin user or open the existing admin user.
+4. Copy the user's UUID.
+5. Open SQL Editor and insert the admin row:
+
+   ```sql
+   insert into public.admin_users (auth_user_id, display_name)
+   values ('00000000-0000-0000-0000-000000000000', 'Admin')
+   on conflict (auth_user_id) do update
+   set display_name = excluded.display_name;
+   ```
+
+6. Replace `00000000-0000-0000-0000-000000000000` with the copied Auth user UUID.
+
+If login succeeds but the app says the account is not listed as a Med Scan admin, this row is missing or points to a different Supabase project.
+
 ## Vercel Deployment
 
 Vercel can deploy this app as a standard Vite project.
@@ -73,7 +99,8 @@ Vercel can deploy this app as a standard Vite project.
    | `VITE_SUPABASE_ANON_KEY` | Preview public anon key | Production public anon key |
 
 5. Set the production branch in Vercel to the branch used for releases.
-6. Deploy once from Vercel to confirm the build succeeds.
+6. Keep `vercel.json` in the repository so direct React Router URLs such as `/admin/login` load `index.html`.
+7. Deploy once from Vercel to confirm the build succeeds.
 
 ### Preview Deployment Flow
 
