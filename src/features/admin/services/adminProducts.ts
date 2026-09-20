@@ -9,9 +9,15 @@ export type AdminProductListItem = {
   updatedAt: string;
 };
 
+export type AdminProductBarcodeValues = {
+  barcode: string;
+  barcodeType: string;
+  id?: string;
+};
+
 export type AdminProductFormValues = {
   applicationInstructions: string;
-  barcode: string;
+  barcodes: AdminProductBarcodeValues[];
   contraindications: string;
   counselingNotes: string;
   countryOfOrigin: string;
@@ -59,6 +65,7 @@ type ProductRow = {
 
 type BarcodeRow = {
   barcode: string;
+  barcode_type: string | null;
   id: string;
 };
 
@@ -155,10 +162,17 @@ function getDuplicateBarcodeMessage(error: unknown) {
   return 'Product could not be saved.';
 }
 
+export function createEmptyBarcode(): AdminProductBarcodeValues {
+  return {
+    barcode: '',
+    barcodeType: '',
+  };
+}
+
 export function createEmptyProductFormValues(): AdminProductFormValues {
   return {
     applicationInstructions: '',
-    barcode: '',
+    barcodes: [createEmptyBarcode()],
     contraindications: '',
     counselingNotes: '',
     countryOfOrigin: '',
@@ -215,21 +229,24 @@ export async function getAdminProduct(productId: string): Promise<AdminProductDe
 
   const { data: barcodes, error: barcodeError } = await supabase
     .from('product_barcodes')
-    .select('id, barcode')
+    .select('id, barcode, barcode_type')
     .eq('product_id', productId)
-    .order('created_at', { ascending: true })
-    .limit(1);
+    .order('created_at', { ascending: true });
 
   if (barcodeError) {
     throw new Error(barcodeError.message);
   }
 
   const productRow = product as ProductRow;
-  const primaryBarcode = ((barcodes ?? []) as BarcodeRow[])[0]?.barcode ?? '';
+  const productBarcodes = ((barcodes ?? []) as BarcodeRow[]).map((barcode) => ({
+    barcode: barcode.barcode,
+    barcodeType: barcode.barcode_type ?? '',
+    id: barcode.id,
+  }));
 
   return {
     applicationInstructions: productRow.application_instructions ?? '',
-    barcode: primaryBarcode,
+    barcodes: productBarcodes.length > 0 ? productBarcodes : [createEmptyBarcode()],
     contraindications: productRow.contraindications ?? '',
     counselingNotes: productRow.counseling_notes ?? '',
     countryOfOrigin: productRow.country_of_origin ?? '',
@@ -251,6 +268,17 @@ export async function getAdminProduct(productId: string): Promise<AdminProductDe
   };
 }
 
+function toBarcodeMutations(productId: string, values: AdminProductFormValues) {
+  return values.barcodes
+    .map((barcode) => ({
+      barcode: barcode.barcode.trim(),
+      barcode_type: normalizeOptional(barcode.barcodeType),
+      id: barcode.id,
+      product_id: productId,
+    }))
+    .filter((barcode) => barcode.barcode.length > 0);
+}
+
 export async function createAdminProduct(values: AdminProductFormValues): Promise<string> {
   const supabase = getSupabaseClient();
 
@@ -265,13 +293,14 @@ export async function createAdminProduct(values: AdminProductFormValues): Promis
   }
 
   const productId = (product as { id: string }).id;
-  const barcode = values.barcode.trim();
+  const barcodes = toBarcodeMutations(productId, values).map((barcode) => ({
+    barcode: barcode.barcode,
+    barcode_type: barcode.barcode_type,
+    product_id: barcode.product_id,
+  }));
 
-  if (barcode) {
-    const { error: barcodeError } = await supabase.from('product_barcodes').insert({
-      barcode,
-      product_id: productId,
-    });
+  if (barcodes.length > 0) {
+    const { error: barcodeError } = await supabase.from('product_barcodes').insert(barcodes);
 
     if (barcodeError) {
       await supabase.from('products').delete().eq('id', productId);
@@ -287,7 +316,7 @@ export async function updateAdminProduct(productId: string, values: AdminProduct
 
   const { data: existingBarcodes, error: loadBarcodeError } = await supabase
     .from('product_barcodes')
-    .select('id, barcode')
+    .select('id, barcode, barcode_type')
     .eq('product_id', productId)
     .order('created_at', { ascending: true });
 
@@ -295,31 +324,41 @@ export async function updateAdminProduct(productId: string, values: AdminProduct
     throw new Error(loadBarcodeError.message);
   }
 
-  const barcode = values.barcode.trim();
-  const [primaryBarcode] = (existingBarcodes ?? []) as BarcodeRow[];
+  const existingBarcodeRows = (existingBarcodes ?? []) as BarcodeRow[];
+  const nextBarcodes = toBarcodeMutations(productId, values);
+  const nextBarcodeIds = new Set(nextBarcodes.map((barcode) => barcode.id).filter(Boolean));
+  const removedBarcodeIds = existingBarcodeRows
+    .map((barcode) => barcode.id)
+    .filter((barcodeId) => !nextBarcodeIds.has(barcodeId));
 
-  if (!barcode && primaryBarcode) {
-    const { error: deleteError } = await supabase.from('product_barcodes').delete().eq('id', primaryBarcode.id);
+  if (removedBarcodeIds.length > 0) {
+    const { error: deleteError } = await supabase.from('product_barcodes').delete().in('id', removedBarcodeIds);
 
     if (deleteError) {
       throw new Error(deleteError.message);
     }
   }
 
-  if (barcode && primaryBarcode && primaryBarcode.barcode !== barcode) {
-    const { error: updateBarcodeError } = await supabase
-      .from('product_barcodes')
-      .update({ barcode })
-      .eq('id', primaryBarcode.id);
+  for (const barcode of nextBarcodes) {
+    if (barcode.id) {
+      const { error: updateBarcodeError } = await supabase
+        .from('product_barcodes')
+        .update({
+          barcode: barcode.barcode,
+          barcode_type: barcode.barcode_type,
+        })
+        .eq('id', barcode.id);
 
-    if (updateBarcodeError) {
-      throw new Error(getDuplicateBarcodeMessage(updateBarcodeError));
+      if (updateBarcodeError) {
+        throw new Error(getDuplicateBarcodeMessage(updateBarcodeError));
+      }
+
+      continue;
     }
-  }
 
-  if (barcode && !primaryBarcode) {
     const { error: insertBarcodeError } = await supabase.from('product_barcodes').insert({
-      barcode,
+      barcode: barcode.barcode,
+      barcode_type: barcode.barcode_type,
       product_id: productId,
     });
 

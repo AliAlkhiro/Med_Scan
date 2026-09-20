@@ -269,7 +269,7 @@ Acceptance criteria:
 - Publishing requires core fields such as trade name and at least one barcode.
 - Public lookup changes when a product is published or unpublished.
 
-### 4.4 Add barcode management
+### 4.4 Add barcode management - Done
 
 References: [design.md section 11.2](design.md#112-product_barcodes)
 

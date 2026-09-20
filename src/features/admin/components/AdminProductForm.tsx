@@ -1,9 +1,10 @@
 import { FormEvent, useMemo, useState } from 'react';
-import { CheckCircle2, Save } from 'lucide-react';
+import { CheckCircle2, Plus, Save, Trash2 } from 'lucide-react';
 import { Button, ErrorState, Select, StatusBadge, Textarea, TextInput } from '../../../shared/ui';
-import type { AdminProductFormValues } from '../services/adminProducts';
+import { createEmptyBarcode, type AdminProductFormValues } from '../services/adminProducts';
 
 type FieldErrors = Partial<Record<keyof AdminProductFormValues, string>>;
+type BarcodeErrors = Record<number, string | undefined>;
 
 type AdminProductFormProps = {
   initialValues: AdminProductFormValues;
@@ -14,21 +15,50 @@ type AdminProductFormProps = {
 
 function validateProduct(values: AdminProductFormValues) {
   const errors: FieldErrors = {};
+  const barcodeErrors: BarcodeErrors = {};
+  const seenBarcodes = new Map<string, number>();
+  const filledBarcodes = values.barcodes
+    .map((barcode, index) => ({
+      barcode: barcode.barcode.trim(),
+      index,
+    }))
+    .filter(({ barcode }) => barcode.length > 0);
 
   if (!values.tradeName.trim()) {
     errors.tradeName = 'Trade name is required.';
   }
 
-  if (values.isPublished && !values.barcode.trim()) {
-    errors.barcode = 'Add at least one barcode before publishing.';
+  if (values.isPublished && filledBarcodes.length === 0) {
+    errors.barcodes = 'Add at least one barcode before publishing.';
   }
 
-  return errors;
+  for (const { barcode, index } of filledBarcodes) {
+    const existingIndex = seenBarcodes.get(barcode);
+
+    if (existingIndex !== undefined) {
+      barcodeErrors[index] = 'This barcode is duplicated in this product.';
+      barcodeErrors[existingIndex] = 'This barcode is duplicated in this product.';
+      continue;
+    }
+
+    seenBarcodes.set(barcode, index);
+  }
+
+  return { barcodeErrors, errors };
 }
 
-function hasErrors(errors: FieldErrors) {
-  return Object.keys(errors).length > 0;
+function hasErrors(errors: FieldErrors, barcodeErrors: BarcodeErrors) {
+  return Object.keys(errors).length > 0 || Object.values(barcodeErrors).some(Boolean);
 }
+
+const barcodeTypeOptions = [
+  { label: 'Unknown', value: '' },
+  { label: 'EAN-13', value: 'EAN-13' },
+  { label: 'EAN-8', value: 'EAN-8' },
+  { label: 'UPC-A', value: 'UPC-A' },
+  { label: 'UPC-E', value: 'UPC-E' },
+  { label: 'Code 128', value: 'Code 128' },
+];
 
 export function AdminProductForm({
   initialValues,
@@ -37,6 +67,7 @@ export function AdminProductForm({
   submitLabel = 'Save product',
 }: AdminProductFormProps) {
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [barcodeErrors, setBarcodeErrors] = useState<BarcodeErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [values, setValues] = useState<AdminProductFormValues>(initialValues);
@@ -59,14 +90,61 @@ export function AdminProductForm({
     });
   };
 
+  const updateBarcodeValue = (index: number, field: 'barcode' | 'barcodeType', value: string) => {
+    setValues((currentValues) => ({
+      ...currentValues,
+      barcodes: currentValues.barcodes.map((barcode, barcodeIndex) =>
+        barcodeIndex === index ? { ...barcode, [field]: value } : barcode,
+      ),
+    }));
+    setErrors((currentErrors) => {
+      if (!currentErrors.barcodes) {
+        return currentErrors;
+      }
+
+      const nextErrors = { ...currentErrors };
+      delete nextErrors.barcodes;
+      return nextErrors;
+    });
+    setBarcodeErrors((currentErrors) => {
+      if (!(index in currentErrors)) {
+        return currentErrors;
+      }
+
+      const nextErrors = { ...currentErrors };
+      delete nextErrors[index];
+      return nextErrors;
+    });
+  };
+
+  const addBarcode = () => {
+    setValues((currentValues) => ({
+      ...currentValues,
+      barcodes: [...currentValues.barcodes, createEmptyBarcode()],
+    }));
+  };
+
+  const removeBarcode = (index: number) => {
+    setValues((currentValues) => {
+      const nextBarcodes = currentValues.barcodes.filter((_, barcodeIndex) => barcodeIndex !== index);
+
+      return {
+        ...currentValues,
+        barcodes: nextBarcodes.length > 0 ? nextBarcodes : [createEmptyBarcode()],
+      };
+    });
+    setBarcodeErrors({});
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFormError(null);
 
-    const nextErrors = validateProduct(values);
+    const { barcodeErrors: nextBarcodeErrors, errors: nextErrors } = validateProduct(values);
     setErrors(nextErrors);
+    setBarcodeErrors(nextBarcodeErrors);
 
-    if (hasErrors(nextErrors)) {
+    if (hasErrors(nextErrors, nextBarcodeErrors)) {
       return;
     }
 
@@ -141,14 +219,6 @@ export function AdminProductForm({
             placeholder="20 tablets blister pack"
             value={values.packDescription}
           />
-          <TextInput
-            error={errors.barcode}
-            hint="Full multi-barcode management is tracked in backlog item 4.4."
-            label="Primary barcode"
-            onChange={(event) => updateValue('barcode', event.target.value)}
-            placeholder="Scanned barcode"
-            value={values.barcode}
-          />
           <Select
             label="Publication status"
             onChange={(event) => updateValue('isPublished', event.target.value === 'published')}
@@ -176,6 +246,57 @@ export function AdminProductForm({
             placeholder="Therapeutic class"
             value={values.therapeuticClass}
           />
+        </div>
+      </section>
+
+      <section className="grid gap-4 rounded-md bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="text-base font-bold text-ink">Barcodes</h3>
+            <p className="mt-1 text-sm text-slate-600">Add every package barcode that should resolve to this product.</p>
+          </div>
+          <Button icon={<Plus aria-hidden="true" size={18} />} onClick={addBarcode} tone="secondary">
+            Add barcode
+          </Button>
+        </div>
+
+        {errors.barcodes ? <p className="text-sm font-medium text-coral">{errors.barcodes}</p> : null}
+
+        <div className="grid gap-3">
+          {values.barcodes.map((barcode, index) => (
+            <div
+              className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 md:grid-cols-[minmax(0,1fr)_12rem_auto] md:items-start"
+              key={barcode.id ?? `new-${index}`}
+            >
+              <TextInput
+                error={barcodeErrors[index]}
+                label={`Barcode ${index + 1}`}
+                onChange={(event) => updateBarcodeValue(index, 'barcode', event.target.value)}
+                placeholder="Scanned barcode"
+                value={barcode.barcode}
+              />
+              <Select
+                label="Type"
+                onChange={(event) => updateBarcodeValue(index, 'barcodeType', event.target.value)}
+                value={barcode.barcodeType}
+              >
+                {barcodeTypeOptions.map((option) => (
+                  <option key={option.value || 'unknown'} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+              <Button
+                aria-label={`Remove barcode ${index + 1}`}
+                className="md:mt-7"
+                icon={<Trash2 aria-hidden="true" size={18} />}
+                onClick={() => removeBarcode(index)}
+                tone="ghost"
+              >
+                Remove
+              </Button>
+            </div>
+          ))}
         </div>
       </section>
 
