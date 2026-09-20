@@ -235,7 +235,7 @@ Acceptance criteria:
 - Admin routes require authenticated admin access.
 - Login and logout work across page refreshes.
 
-### 4.2 Build admin product list
+### 4.2 Build admin product list - Done
 
 References: [design.md sections 5.3 and 17](design.md#17-mvp-scope)
 
