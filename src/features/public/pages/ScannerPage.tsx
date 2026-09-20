@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { DecodeHintType } from '@zxing/library';
 import { Camera, Flashlight, FlashlightOff, RotateCcw, ScanLine } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { isSupabaseConfigured } from '../../../config/env';
@@ -268,7 +267,10 @@ export function ScannerPage() {
     setScanError(null);
 
     try {
-      const { BarcodeFormat, BrowserMultiFormatReader } = await import('@zxing/browser');
+      const [{ BarcodeFormat, BrowserMultiFormatReader }, { DecodeHintType }] = await Promise.all([
+        import('@zxing/browser'),
+        import('@zxing/library'),
+      ]);
       const formats = [
         BarcodeFormat.EAN_13,
         BarcodeFormat.EAN_8,

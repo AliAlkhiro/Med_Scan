@@ -1,12 +1,12 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { PageLoading } from './shared/PageLoading';
 import { PublicLayout } from './features/public/PublicLayout';
 import { ScannerPage } from './features/public/pages/ScannerPage';
-import { ProductPage, ProductPageError } from './features/public/pages/ProductPage';
-import { productPageLoader } from './features/public/pages/productPageLoader';
-import { NotFoundPage } from './features/public/pages/NotFoundPage';
 
+const AdminAuthProvider = lazy(() =>
+  import('./features/admin/auth/AdminAuthProvider').then((module) => ({ default: module.AdminAuthProvider })),
+);
 const ProtectedAdminRoute = lazy(() =>
   import('./features/admin/auth/ProtectedAdminRoute').then((module) => ({ default: module.ProtectedAdminRoute })),
 );
@@ -28,8 +28,11 @@ const AdminProductEditPage = lazy(() =>
 const AdminMetricsPage = lazy(() =>
   import('./features/admin/pages/AdminMetricsPage').then((module) => ({ default: module.AdminMetricsPage })),
 );
+const NotFoundPage = lazy(() =>
+  import('./features/public/pages/NotFoundPage').then((module) => ({ default: module.NotFoundPage })),
+);
 
-const withSuspense = (element: React.ReactNode) => (
+const withSuspense = (element: ReactNode) => (
   <Suspense fallback={<PageLoading />}>{element}</Suspense>
 );
 
@@ -41,17 +44,26 @@ export const router = createBrowserRouter([
       { index: true, element: <ScannerPage /> },
       {
         path: 'product/:barcode',
-        element: <ProductPage />,
-        errorElement: <ProductPageError />,
-        loader: productPageLoader,
+        lazy: () => import('./features/public/pages/productRoute'),
       },
-      { path: 'not-found/:barcode', element: <NotFoundPage /> },
+      { path: 'not-found/:barcode', element: withSuspense(<NotFoundPage />) },
     ],
   },
-  { path: '/admin/login', element: withSuspense(<AdminLoginPage />) },
+  {
+    path: '/admin/login',
+    element: withSuspense(
+      <AdminAuthProvider>
+        <AdminLoginPage />
+      </AdminAuthProvider>,
+    ),
+  },
   {
     path: '/admin',
-    element: withSuspense(<ProtectedAdminRoute />),
+    element: withSuspense(
+      <AdminAuthProvider>
+        <ProtectedAdminRoute />
+      </AdminAuthProvider>,
+    ),
     children: [
       {
         element: withSuspense(<AdminLayout />),

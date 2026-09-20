@@ -403,7 +403,7 @@ Acceptance criteria:
 - Cached content is clearly identified as cached.
 - Cache does not become a full offline product database.
 
-### 7.3 Bundle and loading optimization
+### 7.3 Bundle and loading optimization - Done
 
 References: [design.md section 13](design.md#13-slow-internet-strategy)
 
