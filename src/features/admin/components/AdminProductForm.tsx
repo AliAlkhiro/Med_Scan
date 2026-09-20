@@ -1,12 +1,18 @@
-import { FormEvent, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, CheckCircle2, Plus, Save, Trash2 } from 'lucide-react';
+import { ChangeEvent, FormEvent, useMemo, useState } from 'react';
+import { ArrowDown, ArrowUp, CheckCircle2, Plus, Save, Trash2, Upload } from 'lucide-react';
 import { Button, ErrorState, Select, StatusBadge, Textarea, TextInput } from '../../../shared/ui';
-import { createEmptyAttachment, createEmptyBarcode, type AdminProductFormValues } from '../services/adminProducts';
+import {
+  createEmptyAttachment,
+  createEmptyBarcode,
+  type AdminProductFormValues,
+  uploadAttachmentFile,
+} from '../services/adminProducts';
 
 type FieldErrors = Partial<Record<keyof AdminProductFormValues, string>>;
 type BarcodeErrors = Record<number, string | undefined>;
 type AttachmentField = 'externalUrl' | 'label' | 'mimeType' | 'sizeBytes' | 'storagePath' | 'type';
 type AttachmentErrors = Record<number, Partial<Record<AttachmentField, string>> | undefined>;
+type AttachmentUploadState = Record<number, { error?: string; isUploading: boolean } | undefined>;
 
 type AdminProductFormProps = {
   initialValues: AdminProductFormValues;
@@ -117,6 +123,7 @@ export function AdminProductForm({
   const [attachmentErrors, setAttachmentErrors] = useState<AttachmentErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [attachmentUploadState, setAttachmentUploadState] = useState<AttachmentUploadState>({});
   const [values, setValues] = useState<AdminProductFormValues>(initialValues);
 
   const publicationStatus = useMemo(() => (values.isPublished ? 'published' : 'draft'), [values.isPublished]);
@@ -215,6 +222,77 @@ export function AdminProductForm({
     });
   };
 
+  const handleAttachmentFileChange = async (index: number, event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    setAttachmentUploadState((currentState) => ({
+      ...currentState,
+      [index]: { isUploading: true },
+    }));
+
+    try {
+      const uploadedFile = await uploadAttachmentFile(file);
+      setValues((currentValues) => ({
+        ...currentValues,
+        attachments: currentValues.attachments.map((attachment, attachmentIndex) =>
+          attachmentIndex === index
+            ? {
+                ...attachment,
+                mimeType: uploadedFile.mimeType,
+                sizeBytes: uploadedFile.sizeBytes,
+                storagePath: uploadedFile.storagePath,
+                type: uploadedFile.type,
+              }
+            : attachment,
+        ),
+      }));
+      setErrors((currentErrors) => {
+        if (!currentErrors.attachments) {
+          return currentErrors;
+        }
+
+        const nextErrors = { ...currentErrors };
+        delete nextErrors.attachments;
+        return nextErrors;
+      });
+      setAttachmentErrors((currentErrors) => {
+        const rowErrors = currentErrors[index];
+
+        if (!rowErrors) {
+          return currentErrors;
+        }
+
+        const nextRowErrors = { ...rowErrors };
+        delete nextRowErrors.storagePath;
+        delete nextRowErrors.mimeType;
+        delete nextRowErrors.sizeBytes;
+        delete nextRowErrors.type;
+
+        return {
+          ...currentErrors,
+          [index]: Object.keys(nextRowErrors).length > 0 ? nextRowErrors : undefined,
+        };
+      });
+      setAttachmentUploadState((currentState) => ({
+        ...currentState,
+        [index]: { isUploading: false },
+      }));
+    } catch (error) {
+      setAttachmentUploadState((currentState) => ({
+        ...currentState,
+        [index]: {
+          error: error instanceof Error ? error.message : 'File could not be uploaded.',
+          isUploading: false,
+        },
+      }));
+    }
+  };
+
   const addAttachment = () => {
     setValues((currentValues) => ({
       ...currentValues,
@@ -228,6 +306,7 @@ export function AdminProductForm({
       attachments: currentValues.attachments.filter((_, attachmentIndex) => attachmentIndex !== index),
     }));
     setAttachmentErrors({});
+    setAttachmentUploadState({});
   };
 
   const moveAttachment = (index: number, direction: -1 | 1) => {
@@ -247,6 +326,7 @@ export function AdminProductForm({
       };
     });
     setAttachmentErrors({});
+    setAttachmentUploadState({});
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -439,6 +519,7 @@ export function AdminProductForm({
           <div className="grid gap-3">
             {values.attachments.map((attachment, index) => {
               const rowErrors = attachmentErrors[index] ?? {};
+              const uploadState = attachmentUploadState[index];
 
               return (
                 <div className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3" key={attachment.id ?? `attachment-${index}`}>
@@ -479,6 +560,24 @@ export function AdminProductForm({
                       type="url"
                       value={attachment.externalUrl}
                     />
+                    <div className="grid gap-2 text-sm font-medium text-slate-800 md:col-span-2">
+                      <span>Upload file</span>
+                      <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-semibold text-ink ring-1 ring-slate-200 transition hover:bg-slate-50 focus-within:ring-2 focus-within:ring-palm focus-within:ring-offset-2">
+                        <Upload aria-hidden="true" size={18} />
+                        {uploadState?.isUploading ? 'Uploading' : 'Choose file'}
+                        <input
+                          accept="application/pdf,image/gif,image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm"
+                          className="sr-only"
+                          disabled={uploadState?.isUploading || isSaving}
+                          onChange={(event) => void handleAttachmentFileChange(index, event)}
+                          type="file"
+                        />
+                      </label>
+                      {uploadState?.error ? <span className="text-sm font-medium text-coral">{uploadState.error}</span> : null}
+                      {!uploadState?.error && attachment.storagePath ? (
+                        <span className="text-sm text-slate-500">Uploaded file metadata is ready to save.</span>
+                      ) : null}
+                    </div>
                     <TextInput
                       error={rowErrors.sizeBytes}
                       label="Size in bytes"

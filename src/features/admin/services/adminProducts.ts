@@ -110,6 +110,25 @@ type ProductMutation = {
   warnings: string | null;
 };
 
+const attachmentBucket = 'attachments';
+const supportedAttachmentMimeTypes = new Set([
+  'application/pdf',
+  'image/gif',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'video/mp4',
+  'video/quicktime',
+  'video/webm',
+]);
+
+export type UploadedAttachmentFile = {
+  mimeType: string;
+  sizeBytes: string;
+  storagePath: string;
+  type: AdminProductAttachmentValues['type'];
+};
+
 export async function listAdminProducts(): Promise<AdminProductListItem[]> {
   const supabase = getSupabaseClient();
 
@@ -203,6 +222,57 @@ export function createEmptyAttachment(): AdminProductAttachmentValues {
     sizeBytes: '',
     storagePath: '',
     type: 'pdf',
+  };
+}
+
+function getAttachmentTypeFromMimeType(mimeType: string): AdminProductAttachmentValues['type'] {
+  if (mimeType === 'application/pdf') {
+    return 'pdf';
+  }
+
+  if (mimeType.startsWith('image/')) {
+    return 'image';
+  }
+
+  if (mimeType.startsWith('video/')) {
+    return 'video';
+  }
+
+  return 'link';
+}
+
+function createStorageSafeFileName(fileName: string) {
+  const cleaned = fileName
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  return cleaned || 'attachment';
+}
+
+export async function uploadAttachmentFile(file: File): Promise<UploadedAttachmentFile> {
+  if (!supportedAttachmentMimeTypes.has(file.type)) {
+    throw new Error('Upload a PDF, web image, MP4, WebM, or QuickTime video file.');
+  }
+
+  const supabase = getSupabaseClient();
+  const path = `admin-uploads/${crypto.randomUUID()}-${createStorageSafeFileName(file.name)}`;
+  const { data, error } = await supabase.storage.from(attachmentBucket).upload(path, file, {
+    contentType: file.type,
+    upsert: false,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return {
+    mimeType: file.type,
+    sizeBytes: String(file.size),
+    storagePath: data.path,
+    type: getAttachmentTypeFromMimeType(file.type),
   };
 }
 

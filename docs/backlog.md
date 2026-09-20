@@ -303,7 +303,7 @@ Acceptance criteria:
 - Attachments can be sorted.
 - Invalid metadata, such as missing both file and external URL, cannot be saved.
 
-### 5.2 Add file upload for attachments
+### 5.2 Add file upload for attachments - Done
 
 References: [design.md sections 10 and 13](design.md#13-slow-internet-strategy)
 
