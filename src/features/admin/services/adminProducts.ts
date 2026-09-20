@@ -15,8 +15,19 @@ export type AdminProductBarcodeValues = {
   id?: string;
 };
 
+export type AdminProductAttachmentValues = {
+  externalUrl: string;
+  id?: string;
+  label: string;
+  mimeType: string;
+  sizeBytes: string;
+  storagePath: string;
+  type: string;
+};
+
 export type AdminProductFormValues = {
   applicationInstructions: string;
+  attachments: AdminProductAttachmentValues[];
   barcodes: AdminProductBarcodeValues[];
   contraindications: string;
   counselingNotes: string;
@@ -67,6 +78,16 @@ type BarcodeRow = {
   barcode: string;
   barcode_type: string | null;
   id: string;
+};
+
+type AttachmentRow = {
+  external_url: string | null;
+  id: string;
+  label: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  storage_path: string | null;
+  type: string;
 };
 
 type ProductMutation = {
@@ -124,6 +145,11 @@ function normalizeDate(value: string) {
   return new Date(`${value}T00:00:00.000Z`).toISOString();
 }
 
+function normalizeOptionalNumber(value: string) {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? Number(trimmed) : null;
+}
+
 function toDateInputValue(value: string | null | undefined) {
   return value ? value.slice(0, 10) : '';
 }
@@ -169,9 +195,21 @@ export function createEmptyBarcode(): AdminProductBarcodeValues {
   };
 }
 
+export function createEmptyAttachment(): AdminProductAttachmentValues {
+  return {
+    externalUrl: '',
+    label: '',
+    mimeType: '',
+    sizeBytes: '',
+    storagePath: '',
+    type: 'pdf',
+  };
+}
+
 export function createEmptyProductFormValues(): AdminProductFormValues {
   return {
     applicationInstructions: '',
+    attachments: [],
     barcodes: [createEmptyBarcode()],
     contraindications: '',
     counselingNotes: '',
@@ -237,15 +275,36 @@ export async function getAdminProduct(productId: string): Promise<AdminProductDe
     throw new Error(barcodeError.message);
   }
 
+  const { data: attachments, error: attachmentError } = await supabase
+    .from('attachments')
+    .select('id, label, type, storage_path, external_url, size_bytes, mime_type')
+    .eq('product_id', productId)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+
+  if (attachmentError) {
+    throw new Error(attachmentError.message);
+  }
+
   const productRow = product as ProductRow;
   const productBarcodes = ((barcodes ?? []) as BarcodeRow[]).map((barcode) => ({
     barcode: barcode.barcode,
     barcodeType: barcode.barcode_type ?? '',
     id: barcode.id,
   }));
+  const productAttachments = ((attachments ?? []) as AttachmentRow[]).map((attachment) => ({
+    externalUrl: attachment.external_url ?? '',
+    id: attachment.id,
+    label: attachment.label,
+    mimeType: attachment.mime_type ?? '',
+    sizeBytes: attachment.size_bytes === null ? '' : String(attachment.size_bytes),
+    storagePath: attachment.storage_path ?? '',
+    type: attachment.type,
+  }));
 
   return {
     applicationInstructions: productRow.application_instructions ?? '',
+    attachments: productAttachments,
     barcodes: productBarcodes.length > 0 ? productBarcodes : [createEmptyBarcode()],
     contraindications: productRow.contraindications ?? '',
     counselingNotes: productRow.counseling_notes ?? '',
@@ -279,6 +338,20 @@ function toBarcodeMutations(productId: string, values: AdminProductFormValues) {
     .filter((barcode) => barcode.barcode.length > 0);
 }
 
+function toAttachmentMutations(productId: string, values: AdminProductFormValues) {
+  return values.attachments.map((attachment, index) => ({
+    external_url: normalizeOptional(attachment.externalUrl),
+    id: attachment.id,
+    label: attachment.label.trim(),
+    mime_type: normalizeOptional(attachment.mimeType),
+    product_id: productId,
+    size_bytes: normalizeOptionalNumber(attachment.sizeBytes),
+    sort_order: index,
+    storage_path: normalizeOptional(attachment.storagePath),
+    type: attachment.type,
+  }));
+}
+
 export async function createAdminProduct(values: AdminProductFormValues): Promise<string> {
   const supabase = getSupabaseClient();
 
@@ -305,6 +378,26 @@ export async function createAdminProduct(values: AdminProductFormValues): Promis
     if (barcodeError) {
       await supabase.from('products').delete().eq('id', productId);
       throw new Error(getDuplicateBarcodeMessage(barcodeError));
+    }
+  }
+
+  const attachments = toAttachmentMutations(productId, values).map((attachment) => ({
+    external_url: attachment.external_url,
+    label: attachment.label,
+    mime_type: attachment.mime_type,
+    product_id: attachment.product_id,
+    size_bytes: attachment.size_bytes,
+    sort_order: attachment.sort_order,
+    storage_path: attachment.storage_path,
+    type: attachment.type,
+  }));
+
+  if (attachments.length > 0) {
+    const { error: attachmentError } = await supabase.from('attachments').insert(attachments);
+
+    if (attachmentError) {
+      await supabase.from('products').delete().eq('id', productId);
+      throw new Error(attachmentError.message);
     }
   }
 
@@ -364,6 +457,61 @@ export async function updateAdminProduct(productId: string, values: AdminProduct
 
     if (insertBarcodeError) {
       throw new Error(getDuplicateBarcodeMessage(insertBarcodeError));
+    }
+  }
+
+  const { data: existingAttachments, error: loadAttachmentError } = await supabase
+    .from('attachments')
+    .select('id, label, type, storage_path, external_url, size_bytes, mime_type')
+    .eq('product_id', productId);
+
+  if (loadAttachmentError) {
+    throw new Error(loadAttachmentError.message);
+  }
+
+  const existingAttachmentRows = (existingAttachments ?? []) as AttachmentRow[];
+  const nextAttachments = toAttachmentMutations(productId, values);
+  const nextAttachmentIds = new Set(nextAttachments.map((attachment) => attachment.id).filter(Boolean));
+  const removedAttachmentIds = existingAttachmentRows
+    .map((attachment) => attachment.id)
+    .filter((attachmentId) => !nextAttachmentIds.has(attachmentId));
+
+  if (removedAttachmentIds.length > 0) {
+    const { error: deleteAttachmentError } = await supabase.from('attachments').delete().in('id', removedAttachmentIds);
+
+    if (deleteAttachmentError) {
+      throw new Error(deleteAttachmentError.message);
+    }
+  }
+
+  for (const attachment of nextAttachments) {
+    const mutation = {
+      external_url: attachment.external_url,
+      label: attachment.label,
+      mime_type: attachment.mime_type,
+      size_bytes: attachment.size_bytes,
+      sort_order: attachment.sort_order,
+      storage_path: attachment.storage_path,
+      type: attachment.type,
+    };
+
+    if (attachment.id) {
+      const { error: updateAttachmentError } = await supabase.from('attachments').update(mutation).eq('id', attachment.id);
+
+      if (updateAttachmentError) {
+        throw new Error(updateAttachmentError.message);
+      }
+
+      continue;
+    }
+
+    const { error: insertAttachmentError } = await supabase.from('attachments').insert({
+      ...mutation,
+      product_id: productId,
+    });
+
+    if (insertAttachmentError) {
+      throw new Error(insertAttachmentError.message);
     }
   }
 

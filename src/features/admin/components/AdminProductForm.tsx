@@ -1,10 +1,12 @@
 import { FormEvent, useMemo, useState } from 'react';
-import { CheckCircle2, Plus, Save, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, CheckCircle2, Plus, Save, Trash2 } from 'lucide-react';
 import { Button, ErrorState, Select, StatusBadge, Textarea, TextInput } from '../../../shared/ui';
-import { createEmptyBarcode, type AdminProductFormValues } from '../services/adminProducts';
+import { createEmptyAttachment, createEmptyBarcode, type AdminProductFormValues } from '../services/adminProducts';
 
 type FieldErrors = Partial<Record<keyof AdminProductFormValues, string>>;
 type BarcodeErrors = Record<number, string | undefined>;
+type AttachmentField = 'externalUrl' | 'label' | 'mimeType' | 'sizeBytes' | 'storagePath' | 'type';
+type AttachmentErrors = Record<number, Partial<Record<AttachmentField, string>> | undefined>;
 
 type AdminProductFormProps = {
   initialValues: AdminProductFormValues;
@@ -16,6 +18,7 @@ type AdminProductFormProps = {
 function validateProduct(values: AdminProductFormValues) {
   const errors: FieldErrors = {};
   const barcodeErrors: BarcodeErrors = {};
+  const attachmentErrors: AttachmentErrors = {};
   const seenBarcodes = new Map<string, number>();
   const filledBarcodes = values.barcodes
     .map((barcode, index) => ({
@@ -44,11 +47,47 @@ function validateProduct(values: AdminProductFormValues) {
     seenBarcodes.set(barcode, index);
   }
 
-  return { barcodeErrors, errors };
+  values.attachments.forEach((attachment, index) => {
+    const rowErrors: Partial<Record<AttachmentField, string>> = {};
+    const hasStoragePath = attachment.storagePath.trim().length > 0;
+    const hasExternalUrl = attachment.externalUrl.trim().length > 0;
+    const sizeBytes = attachment.sizeBytes.trim();
+
+    if (!attachment.label.trim()) {
+      rowErrors.label = 'Label is required.';
+    }
+
+    if (!attachment.type) {
+      rowErrors.type = 'Type is required.';
+    }
+
+    if (!hasStoragePath && !hasExternalUrl) {
+      rowErrors.storagePath = 'Add a file path or external URL.';
+      rowErrors.externalUrl = 'Add a file path or external URL.';
+    }
+
+    if (sizeBytes.length > 0 && (!Number.isInteger(Number(sizeBytes)) || Number(sizeBytes) < 0)) {
+      rowErrors.sizeBytes = 'Size must be a whole number of bytes.';
+    }
+
+    if (Object.keys(rowErrors).length > 0) {
+      attachmentErrors[index] = rowErrors;
+    }
+  });
+
+  if (Object.keys(attachmentErrors).length > 0) {
+    errors.attachments = 'Fix attachment metadata before saving.';
+  }
+
+  return { attachmentErrors, barcodeErrors, errors };
 }
 
-function hasErrors(errors: FieldErrors, barcodeErrors: BarcodeErrors) {
-  return Object.keys(errors).length > 0 || Object.values(barcodeErrors).some(Boolean);
+function hasErrors(errors: FieldErrors, barcodeErrors: BarcodeErrors, attachmentErrors: AttachmentErrors) {
+  return (
+    Object.keys(errors).length > 0 ||
+    Object.values(barcodeErrors).some(Boolean) ||
+    Object.values(attachmentErrors).some((rowErrors) => rowErrors && Object.keys(rowErrors).length > 0)
+  );
 }
 
 const barcodeTypeOptions = [
@@ -60,6 +99,13 @@ const barcodeTypeOptions = [
   { label: 'Code 128', value: 'Code 128' },
 ];
 
+const attachmentTypeOptions = [
+  { label: 'PDF', value: 'pdf' },
+  { label: 'Image', value: 'image' },
+  { label: 'Video', value: 'video' },
+  { label: 'Link', value: 'link' },
+];
+
 export function AdminProductForm({
   initialValues,
   onSubmit,
@@ -68,6 +114,7 @@ export function AdminProductForm({
 }: AdminProductFormProps) {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [barcodeErrors, setBarcodeErrors] = useState<BarcodeErrors>({});
+  const [attachmentErrors, setAttachmentErrors] = useState<AttachmentErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [values, setValues] = useState<AdminProductFormValues>(initialValues);
@@ -136,15 +183,86 @@ export function AdminProductForm({
     setBarcodeErrors({});
   };
 
+  const updateAttachmentValue = (index: number, field: AttachmentField, value: string) => {
+    setValues((currentValues) => ({
+      ...currentValues,
+      attachments: currentValues.attachments.map((attachment, attachmentIndex) =>
+        attachmentIndex === index ? { ...attachment, [field]: value } : attachment,
+      ),
+    }));
+    setErrors((currentErrors) => {
+      if (!currentErrors.attachments) {
+        return currentErrors;
+      }
+
+      const nextErrors = { ...currentErrors };
+      delete nextErrors.attachments;
+      return nextErrors;
+    });
+    setAttachmentErrors((currentErrors) => {
+      const rowErrors = currentErrors[index];
+
+      if (!rowErrors || !(field in rowErrors)) {
+        return currentErrors;
+      }
+
+      const nextRowErrors = { ...rowErrors };
+      delete nextRowErrors[field];
+      return {
+        ...currentErrors,
+        [index]: Object.keys(nextRowErrors).length > 0 ? nextRowErrors : undefined,
+      };
+    });
+  };
+
+  const addAttachment = () => {
+    setValues((currentValues) => ({
+      ...currentValues,
+      attachments: [...currentValues.attachments, createEmptyAttachment()],
+    }));
+  };
+
+  const removeAttachment = (index: number) => {
+    setValues((currentValues) => ({
+      ...currentValues,
+      attachments: currentValues.attachments.filter((_, attachmentIndex) => attachmentIndex !== index),
+    }));
+    setAttachmentErrors({});
+  };
+
+  const moveAttachment = (index: number, direction: -1 | 1) => {
+    setValues((currentValues) => {
+      const nextIndex = index + direction;
+
+      if (nextIndex < 0 || nextIndex >= currentValues.attachments.length) {
+        return currentValues;
+      }
+
+      const nextAttachments = [...currentValues.attachments];
+      [nextAttachments[index], nextAttachments[nextIndex]] = [nextAttachments[nextIndex], nextAttachments[index]];
+
+      return {
+        ...currentValues,
+        attachments: nextAttachments,
+      };
+    });
+    setAttachmentErrors({});
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFormError(null);
 
-    const { barcodeErrors: nextBarcodeErrors, errors: nextErrors } = validateProduct(values);
+    const {
+      attachmentErrors: nextAttachmentErrors,
+      barcodeErrors: nextBarcodeErrors,
+      errors: nextErrors,
+    } = validateProduct(values);
     setErrors(nextErrors);
+    setAttachmentErrors(nextAttachmentErrors);
     setBarcodeErrors(nextBarcodeErrors);
 
-    if (hasErrors(nextErrors, nextBarcodeErrors)) {
+    if (hasErrors(nextErrors, nextBarcodeErrors, nextAttachmentErrors)) {
       return;
     }
 
@@ -298,6 +416,119 @@ export function AdminProductForm({
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="grid gap-4 rounded-md bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="text-base font-bold text-ink">Attachments</h3>
+            <p className="mt-1 text-sm text-slate-600">Add reviewed documents, images, videos, or reference links for pharmacists.</p>
+          </div>
+          <Button icon={<Plus aria-hidden="true" size={18} />} onClick={addAttachment} tone="secondary">
+            Add attachment
+          </Button>
+        </div>
+
+        {errors.attachments ? <p className="text-sm font-medium text-coral">{errors.attachments}</p> : null}
+
+        {values.attachments.length === 0 ? (
+          <p className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+            No attachment metadata has been added.
+          </p>
+        ) : (
+          <div className="grid gap-3">
+            {values.attachments.map((attachment, index) => {
+              const rowErrors = attachmentErrors[index] ?? {};
+
+              return (
+                <div className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3" key={attachment.id ?? `attachment-${index}`}>
+                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_12rem]">
+                    <TextInput
+                      error={rowErrors.label}
+                      label={`Attachment ${index + 1} label`}
+                      onChange={(event) => updateAttachmentValue(index, 'label', event.target.value)}
+                      placeholder="Patient leaflet"
+                      value={attachment.label}
+                    />
+                    <Select
+                      error={rowErrors.type}
+                      label="Type"
+                      onChange={(event) => updateAttachmentValue(index, 'type', event.target.value)}
+                      value={attachment.type}
+                    >
+                      {attachmentTypeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <TextInput
+                      error={rowErrors.storagePath}
+                      label="Storage path"
+                      onChange={(event) => updateAttachmentValue(index, 'storagePath', event.target.value)}
+                      placeholder="products/name/file.pdf"
+                      value={attachment.storagePath}
+                    />
+                    <TextInput
+                      error={rowErrors.externalUrl}
+                      label="External URL"
+                      onChange={(event) => updateAttachmentValue(index, 'externalUrl', event.target.value)}
+                      placeholder="https://..."
+                      type="url"
+                      value={attachment.externalUrl}
+                    />
+                    <TextInput
+                      error={rowErrors.sizeBytes}
+                      label="Size in bytes"
+                      min="0"
+                      onChange={(event) => updateAttachmentValue(index, 'sizeBytes', event.target.value)}
+                      placeholder="Optional"
+                      type="number"
+                      value={attachment.sizeBytes}
+                    />
+                    <TextInput
+                      error={rowErrors.mimeType}
+                      label="MIME type"
+                      onChange={(event) => updateAttachmentValue(index, 'mimeType', event.target.value)}
+                      placeholder="application/pdf"
+                      value={attachment.mimeType}
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      aria-label={`Move attachment ${index + 1} up`}
+                      disabled={index === 0}
+                      icon={<ArrowUp aria-hidden="true" size={18} />}
+                      onClick={() => moveAttachment(index, -1)}
+                      tone="ghost"
+                    >
+                      Up
+                    </Button>
+                    <Button
+                      aria-label={`Move attachment ${index + 1} down`}
+                      disabled={index === values.attachments.length - 1}
+                      icon={<ArrowDown aria-hidden="true" size={18} />}
+                      onClick={() => moveAttachment(index, 1)}
+                      tone="ghost"
+                    >
+                      Down
+                    </Button>
+                    <Button
+                      aria-label={`Remove attachment ${index + 1}`}
+                      icon={<Trash2 aria-hidden="true" size={18} />}
+                      onClick={() => removeAttachment(index)}
+                      tone="ghost"
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       <section className="grid gap-4 rounded-md bg-white p-5 shadow-sm">

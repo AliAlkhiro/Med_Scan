@@ -287,7 +287,7 @@ Acceptance criteria:
 
 ## Milestone 5: Attachments
 
-### 5.1 Add attachment metadata management
+### 5.1 Add attachment metadata management - Done
 
 References: [design.md section 10](design.md#10-attachments)
 
