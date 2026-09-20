@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, useMemo, useState } from 'react';
+import { ChangeEvent, FormEvent, useMemo, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, CheckCircle2, Plus, Save, Trash2, Upload } from 'lucide-react';
 import { Button, ErrorState, Select, StatusBadge, Textarea, TextInput } from '../../../shared/ui';
 import {
@@ -96,6 +96,49 @@ function hasErrors(errors: FieldErrors, barcodeErrors: BarcodeErrors, attachment
   );
 }
 
+function getFirstValidationTarget(errors: FieldErrors, barcodeErrors: BarcodeErrors, attachmentErrors: AttachmentErrors) {
+  if (errors.tradeName) {
+    return 'tradeName';
+  }
+
+  const firstBarcodeErrorIndex = Object.keys(barcodeErrors)
+    .map(Number)
+    .sort((left, right) => left - right)
+    .find((index) => Boolean(barcodeErrors[index]));
+
+  if (firstBarcodeErrorIndex !== undefined) {
+    return `barcode-${firstBarcodeErrorIndex}`;
+  }
+
+  if (errors.barcodes) {
+    return 'barcodes';
+  }
+
+  const attachmentFieldOrder: AttachmentField[] = ['label', 'type', 'storagePath', 'externalUrl', 'sizeBytes', 'mimeType'];
+  const firstAttachmentErrorIndex = Object.keys(attachmentErrors)
+    .map(Number)
+    .sort((left, right) => left - right)
+    .find((index) => {
+      const rowErrors = attachmentErrors[index];
+      return Boolean(rowErrors && Object.keys(rowErrors).length > 0);
+    });
+
+  if (firstAttachmentErrorIndex !== undefined) {
+    const rowErrors = attachmentErrors[firstAttachmentErrorIndex];
+    const firstField = attachmentFieldOrder.find((field) => rowErrors?.[field]);
+
+    if (firstField) {
+      return `attachment-${firstAttachmentErrorIndex}-${firstField}`;
+    }
+  }
+
+  if (errors.attachments) {
+    return 'attachments';
+  }
+
+  return null;
+}
+
 const barcodeTypeOptions = [
   { label: 'Unknown', value: '' },
   { label: 'EAN-13', value: 'EAN-13' },
@@ -125,6 +168,7 @@ export function AdminProductForm({
   const [isSaving, setIsSaving] = useState(false);
   const [attachmentUploadState, setAttachmentUploadState] = useState<AttachmentUploadState>({});
   const [values, setValues] = useState<AdminProductFormValues>(initialValues);
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   const publicationStatus = useMemo(() => (values.isPublished ? 'published' : 'draft'), [values.isPublished]);
 
@@ -343,6 +387,19 @@ export function AdminProductForm({
     setBarcodeErrors(nextBarcodeErrors);
 
     if (hasErrors(nextErrors, nextBarcodeErrors, nextAttachmentErrors)) {
+      const firstValidationTarget = getFirstValidationTarget(nextErrors, nextBarcodeErrors, nextAttachmentErrors);
+
+      window.requestAnimationFrame(() => {
+        const target = firstValidationTarget
+          ? formRef.current?.querySelector<HTMLElement>(`[data-validation-target="${firstValidationTarget}"]`)
+          : null;
+
+        target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement) {
+          target.focus({ preventScroll: true });
+        }
+      });
       return;
     }
 
@@ -358,7 +415,7 @@ export function AdminProductForm({
   };
 
   return (
-    <form className="grid gap-5" onSubmit={handleSubmit}>
+    <form className="grid gap-5" noValidate onSubmit={handleSubmit} ref={formRef}>
       <div className="flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-white px-4 py-3">
         <StatusBadge tone={values.isPublished ? 'published' : 'draft'}>
           {values.isPublished ? 'Published' : 'Draft'}
@@ -380,6 +437,8 @@ export function AdminProductForm({
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           <TextInput
+            aria-invalid={Boolean(errors.tradeName)}
+            data-validation-target="tradeName"
             error={errors.tradeName}
             label="Trade name"
             onChange={(event) => updateValue('tradeName', event.target.value)}
@@ -447,7 +506,7 @@ export function AdminProductForm({
         </div>
       </section>
 
-      <section className="grid gap-4 rounded-md bg-white p-5 shadow-sm">
+      <section className="grid gap-4 rounded-md bg-white p-5 shadow-sm" data-validation-target="barcodes">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="text-base font-bold text-ink">Barcodes</h3>
@@ -467,6 +526,8 @@ export function AdminProductForm({
               key={barcode.id ?? `new-${index}`}
             >
               <TextInput
+                aria-invalid={Boolean(barcodeErrors[index])}
+                data-validation-target={`barcode-${index}`}
                 error={barcodeErrors[index]}
                 label={`Barcode ${index + 1}`}
                 onChange={(event) => updateBarcodeValue(index, 'barcode', event.target.value)}
@@ -498,7 +559,7 @@ export function AdminProductForm({
         </div>
       </section>
 
-      <section className="grid gap-4 rounded-md bg-white p-5 shadow-sm">
+      <section className="grid gap-4 rounded-md bg-white p-5 shadow-sm" data-validation-target="attachments">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="text-base font-bold text-ink">Attachments</h3>
@@ -525,6 +586,8 @@ export function AdminProductForm({
                 <div className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-3" key={attachment.id ?? `attachment-${index}`}>
                   <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_12rem]">
                     <TextInput
+                      aria-invalid={Boolean(rowErrors.label)}
+                      data-validation-target={`attachment-${index}-label`}
                       error={rowErrors.label}
                       label={`Attachment ${index + 1} label`}
                       onChange={(event) => updateAttachmentValue(index, 'label', event.target.value)}
@@ -532,6 +595,8 @@ export function AdminProductForm({
                       value={attachment.label}
                     />
                     <Select
+                      aria-invalid={Boolean(rowErrors.type)}
+                      data-validation-target={`attachment-${index}-type`}
                       error={rowErrors.type}
                       label="Type"
                       onChange={(event) => updateAttachmentValue(index, 'type', event.target.value)}
@@ -546,6 +611,8 @@ export function AdminProductForm({
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
                     <TextInput
+                      aria-invalid={Boolean(rowErrors.storagePath)}
+                      data-validation-target={`attachment-${index}-storagePath`}
                       error={rowErrors.storagePath}
                       label="Storage path"
                       onChange={(event) => updateAttachmentValue(index, 'storagePath', event.target.value)}
@@ -553,6 +620,8 @@ export function AdminProductForm({
                       value={attachment.storagePath}
                     />
                     <TextInput
+                      aria-invalid={Boolean(rowErrors.externalUrl)}
+                      data-validation-target={`attachment-${index}-externalUrl`}
                       error={rowErrors.externalUrl}
                       label="External URL"
                       onChange={(event) => updateAttachmentValue(index, 'externalUrl', event.target.value)}
@@ -579,6 +648,8 @@ export function AdminProductForm({
                       ) : null}
                     </div>
                     <TextInput
+                      aria-invalid={Boolean(rowErrors.sizeBytes)}
+                      data-validation-target={`attachment-${index}-sizeBytes`}
                       error={rowErrors.sizeBytes}
                       label="Size in bytes"
                       min="0"
@@ -588,6 +659,8 @@ export function AdminProductForm({
                       value={attachment.sizeBytes}
                     />
                     <TextInput
+                      aria-invalid={Boolean(rowErrors.mimeType)}
+                      data-validation-target={`attachment-${index}-mimeType`}
                       error={rowErrors.mimeType}
                       label="MIME type"
                       onChange={(event) => updateAttachmentValue(index, 'mimeType', event.target.value)}

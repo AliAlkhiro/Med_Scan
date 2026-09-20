@@ -421,7 +421,7 @@ Acceptance criteria:
 
 ## Milestone 8: Deployment and Release Validation
 
-### 8.1 Configure deployment environments
+### 8.1 Configure deployment environments - Done
 
 References: [design.md section 6](design.md#6-recommended-tech-stack)
 

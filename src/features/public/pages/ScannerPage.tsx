@@ -334,8 +334,8 @@ export function ScannerPage() {
   }[scannerState];
 
   return (
-    <section className="mx-auto flex min-h-screen w-full max-w-xl flex-col px-5 py-6">
-      <header className="mb-5 flex items-center justify-between">
+    <section className="mx-auto flex h-[100dvh] w-full max-w-xl flex-col overflow-hidden px-5 py-5">
+      <header className="mb-4 flex flex-none items-center justify-between">
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-palm">Med Scan</p>
           <h1 className="text-2xl font-bold">Scan product barcode</h1>
@@ -345,7 +345,7 @@ export function ScannerPage() {
         </div>
       </header>
 
-      <div className="relative flex flex-1 items-center justify-center overflow-hidden rounded-lg bg-ink text-white shadow-xl">
+      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-lg bg-ink text-white shadow-xl">
         <video
           aria-label="Barcode scanner camera preview"
           autoPlay
@@ -368,7 +368,7 @@ export function ScannerPage() {
           </button>
         ) : null}
         <div
-          className="relative aspect-[3/4] w-full max-w-[20rem] rounded-lg border-2 border-white/75 shadow-[0_0_0_999px_rgba(15,23,42,0.28)]"
+          className="relative aspect-[3/4] h-[min(100%,26rem)] max-h-[calc(100%-2rem)] max-w-[min(20rem,80vw)] rounded-lg border-2 border-white/75 shadow-[0_0_0_999px_rgba(15,23,42,0.28)]"
           ref={guideRef}
         >
           <div className="absolute left-5 right-5 top-1/2 h-0.5 bg-coral shadow-[0_0_18px_rgba(220,107,79,0.85)]" />
@@ -386,19 +386,19 @@ export function ScannerPage() {
       </div>
 
       {torchError ? (
-        <p className="mt-3 rounded-md bg-orange-50 px-3 py-2 text-sm font-medium text-orange-800 ring-1 ring-orange-100">
+        <p className="mt-3 flex-none rounded-md bg-orange-50 px-3 py-2 text-sm font-medium text-orange-800 ring-1 ring-orange-100">
           {torchError}
         </p>
       ) : null}
 
       {scanError ? (
-        <p className="mt-3 rounded-md bg-orange-50 px-3 py-2 text-sm font-medium text-orange-800 ring-1 ring-orange-100">
+        <p className="mt-3 flex-none rounded-md bg-orange-50 px-3 py-2 text-sm font-medium text-orange-800 ring-1 ring-orange-100">
           {scanError}
         </p>
       ) : null}
 
       {scannerState !== 'error' ? (
-        <div className="mt-4 grid gap-3">
+        <div className="mt-4 grid flex-none gap-3">
           <Button
             disabled={scannerState !== 'ready'}
             icon={<Camera aria-hidden="true" size={18} />}
@@ -410,7 +410,7 @@ export function ScannerPage() {
       ) : null}
 
       {scannerState === 'error' && (
-        <div className="mt-4">
+        <div className="mt-4 flex-none">
           <ErrorState
             action={
               <Button icon={<RotateCcw aria-hidden="true" size={17} />} onClick={retryScanner} tone="secondary">
@@ -426,7 +426,7 @@ export function ScannerPage() {
       )}
 
       {!isSupabaseConfigured && (
-        <div className="mt-4">
+        <div className="mt-4 flex-none">
           <ErrorState
             action={<Button icon={<RotateCcw aria-hidden="true" size={17} />} onClick={retryScanner} tone="secondary">Retry</Button>}
             message="Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before connecting lookup data."
