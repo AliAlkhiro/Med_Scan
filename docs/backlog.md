@@ -339,7 +339,7 @@ Acceptance criteria:
 
 ## Milestone 6: Metrics
 
-### 6.1 Add metrics query layer
+### 6.1 Add metrics query layer - Done
 
 References: [design.md sections 11.4 and 16](design.md#16-metrics)
 
