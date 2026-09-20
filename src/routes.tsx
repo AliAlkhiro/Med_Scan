@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { PageLoading } from './shared/PageLoading';
 import { PublicLayout } from './features/public/PublicLayout';
 import { ScannerPage } from './features/public/pages/ScannerPage';
@@ -7,6 +7,9 @@ import { ProductPage, ProductPageError } from './features/public/pages/ProductPa
 import { productPageLoader } from './features/public/pages/productPageLoader';
 import { NotFoundPage } from './features/public/pages/NotFoundPage';
 
+const ProtectedAdminRoute = lazy(() =>
+  import('./features/admin/auth/ProtectedAdminRoute').then((module) => ({ default: module.ProtectedAdminRoute })),
+);
 const AdminLayout = lazy(() =>
   import('./features/admin/AdminLayout').then((module) => ({ default: module.AdminLayout })),
 );
@@ -45,15 +48,21 @@ export const router = createBrowserRouter([
       { path: 'not-found/:barcode', element: <NotFoundPage /> },
     ],
   },
+  { path: '/admin/login', element: withSuspense(<AdminLoginPage />) },
   {
     path: '/admin',
-    element: withSuspense(<AdminLayout />),
+    element: withSuspense(<ProtectedAdminRoute />),
     children: [
-      { path: 'login', element: withSuspense(<AdminLoginPage />) },
-      { path: 'products', element: withSuspense(<AdminProductsPage />) },
-      { path: 'products/new', element: withSuspense(<AdminProductNewPage />) },
-      { path: 'products/:id', element: withSuspense(<AdminProductEditPage />) },
-      { path: 'metrics', element: withSuspense(<AdminMetricsPage />) },
+      {
+        element: withSuspense(<AdminLayout />),
+        children: [
+          { index: true, element: <Navigate replace to="/admin/products" /> },
+          { path: 'products', element: withSuspense(<AdminProductsPage />) },
+          { path: 'products/new', element: withSuspense(<AdminProductNewPage />) },
+          { path: 'products/:id', element: withSuspense(<AdminProductEditPage />) },
+          { path: 'metrics', element: withSuspense(<AdminMetricsPage />) },
+        ],
+      },
     ],
   },
 ]);

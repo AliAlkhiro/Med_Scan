@@ -1,7 +1,8 @@
 import { BarChart3, Boxes, LogOut, Plus, ScanLine } from 'lucide-react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { cx } from '../../shared/cx';
 import { Button } from '../../shared/ui';
+import { useAdminAuth } from './auth/adminAuthContext';
 
 const navItems = [
   { to: '/admin/products', label: 'Products', icon: Boxes },
@@ -10,6 +11,14 @@ const navItems = [
 ];
 
 export function AdminLayout() {
+  const navigate = useNavigate();
+  const { signOut, user } = useAdminAuth();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/admin/login', { replace: true });
+  };
+
   return (
     <div className="min-h-screen bg-slate-100 text-ink antialiased">
       <header className="border-b border-slate-200 bg-white">
@@ -39,7 +48,13 @@ export function AdminLayout() {
                 {item.label}
               </NavLink>
             ))}
-            <Button className="min-h-10 px-3 py-2" icon={<LogOut aria-hidden="true" size={17} />} tone="ghost">
+            <Button
+              aria-label={user?.email ? `Logout ${user.email}` : 'Logout'}
+              className="min-h-10 px-3 py-2"
+              icon={<LogOut aria-hidden="true" size={17} />}
+              onClick={handleLogout}
+              tone="ghost"
+            >
               Logout
             </Button>
           </nav>

@@ -218,7 +218,7 @@ Acceptance criteria:
 
 ## Milestone 4: Admin Authentication and Product Management
 
-### 4.1 Build admin login and route protection
+### 4.1 Build admin login and route protection - Done
 
 References: [design.md sections 7 and 14](design.md#14-security-and-permissions)
 
