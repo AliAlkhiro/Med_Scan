@@ -1,5 +1,6 @@
 import { RotateCcw } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
+import { BrandLockup } from '../../../shared/brand';
 import { EmptyState } from '../../../shared/ui';
 
 export function NotFoundPage() {
@@ -7,9 +8,9 @@ export function NotFoundPage() {
   const scannedBarcode = barcode?.trim() || 'Unknown barcode';
 
   return (
-    <section className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center gap-5 px-5 py-6">
+    <section className="mx-auto flex min-h-[calc(100dvh-5.5rem)] w-full max-w-xl flex-col justify-center gap-5 px-5 py-6">
       <header>
-        <p className="text-sm font-semibold uppercase tracking-wide text-palm">No matching record</p>
+        <BrandLockup compact subtitle="No matching record" />
         <h1 className="mt-1 text-2xl font-bold">Product not found</h1>
       </header>
 

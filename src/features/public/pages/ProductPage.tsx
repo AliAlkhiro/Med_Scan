@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { AlertTriangle, ExternalLink, FileText, Image, Link as LinkIcon, LoaderCircle, RotateCcw, Video } from 'lucide-react';
 import { Link, useLoaderData } from 'react-router-dom';
 import { isSupabaseConfigured } from '../../../config/env';
+import { BrandLockup } from '../../../shared/brand';
 import { Button, ErrorState, StatusBadge } from '../../../shared/ui';
 import {
   getAttachmentOpenUrl,
@@ -192,9 +193,9 @@ export function ProductPage() {
   const hasReferenceNotes = getVisibleFields(detailFields, product).length > 0 || reviewedAt !== null;
 
   return (
-    <section className="mx-auto flex min-h-screen w-full max-w-xl flex-col gap-5 px-5 py-6">
+    <section className="mx-auto flex min-h-[calc(100dvh-5.5rem)] w-full max-w-xl flex-col gap-5 px-5 py-6">
       <header>
-        <p className="text-sm font-semibold uppercase tracking-wide text-palm">Product details</p>
+        <BrandLockup compact subtitle="Product details" />
         <h1 className="mt-1 text-2xl font-bold">{product.tradeName}</h1>
         <p className="mt-2 text-sm text-slate-600">Barcode {barcode}</p>
       </header>
@@ -214,7 +215,7 @@ export function ProductPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 rounded-md bg-white p-5 shadow-sm">
+      <div className="grid gap-4 rounded-md border border-aqua/20 bg-white/95 p-5 shadow-sm">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-bold">Key details</h2>
           <StatusBadge tone="published">Published</StatusBadge>
@@ -223,7 +224,7 @@ export function ProductPage() {
       </div>
 
       {hasReferenceNotes ? (
-        <div className="grid gap-4 rounded-md bg-white p-5 shadow-sm">
+        <div className="grid gap-4 rounded-md border border-aqua/20 bg-white/95 p-5 shadow-sm">
           <h2 className="text-lg font-bold">Reference notes</h2>
           <FieldList fields={detailFields} product={product} />
           {reviewedAt ? (
@@ -233,7 +234,7 @@ export function ProductPage() {
       ) : null}
 
       {product.attachments.length > 0 ? (
-        <div className="grid gap-3 rounded-md bg-white p-5 shadow-sm">
+        <div className="grid gap-3 rounded-md border border-aqua/20 bg-white/95 p-5 shadow-sm">
           <h2 className="text-lg font-bold">Attachments</h2>
           <div className="grid gap-2">
             {product.attachments.map((attachment) => {
@@ -245,7 +246,7 @@ export function ProductPage() {
                   key={attachment.id}
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <span className="grid h-9 w-9 flex-none place-items-center rounded-md bg-teal-50 text-palm">
+                    <span className="grid h-9 w-9 flex-none place-items-center rounded-md bg-aqua/10 text-palm">
                       {attachmentIcon(attachment.type)}
                     </span>
                     <div className="min-w-0">
@@ -276,7 +277,7 @@ export function ProductPage() {
 
 export function ProductPageError() {
   return (
-    <section className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center gap-5 px-5 py-6">
+    <section className="mx-auto flex min-h-[calc(100dvh-5.5rem)] w-full max-w-xl flex-col justify-center gap-5 px-5 py-6">
       <ErrorState
         action={
           <Link to="/">

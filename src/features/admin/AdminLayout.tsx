@@ -1,5 +1,6 @@
-import { BarChart3, Boxes, LogOut, Plus, ScanLine } from 'lucide-react';
+import { BarChart3, Boxes, LogOut, Plus } from 'lucide-react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { BrandFooter, BrandLockup } from '../../shared/brand';
 import { cx } from '../../shared/cx';
 import { Button } from '../../shared/ui';
 import { useAdminAuth } from './auth/adminAuthContext';
@@ -20,25 +21,19 @@ export function AdminLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 text-ink antialiased">
-      <header className="border-b border-slate-200 bg-white">
+    <div className="flex min-h-screen flex-col bg-[linear-gradient(135deg,#f3faf7_0%,#eef7ff_52%,#fff1f3_100%)] text-ink antialiased">
+      <header className="border-b border-aqua/20 bg-white/90 shadow-sm">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="grid h-11 w-11 flex-none place-items-center rounded-md bg-palm text-white">
-              <ScanLine aria-hidden="true" size={22} />
-            </div>
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-wide text-palm">Med Scan Admin</p>
-              <h1 className="text-xl font-bold">Product management</h1>
-            </div>
-          </div>
+          <BrandLockup compact subtitle="Product management" />
           <nav className="flex flex-wrap gap-2 text-sm font-semibold" aria-label="Admin">
             {navItems.map((item) => (
               <NavLink
                 className={({ isActive }) =>
                   cx(
                     'inline-flex min-h-10 items-center gap-2 rounded-md px-3 py-2 transition',
-                    isActive ? 'bg-palm text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200',
+                    isActive
+                      ? 'bg-[linear-gradient(135deg,#123f2d_0%,#156a53_70%,#22c7cc_100%)] text-white shadow-sm'
+                      : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-aqua/10 hover:text-palm',
                   )
                 }
                 key={item.to}
@@ -60,9 +55,10 @@ export function AdminLayout() {
           </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-5 py-6">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-6">
         <Outlet />
       </main>
+      <BrandFooter />
     </div>
   );
 }

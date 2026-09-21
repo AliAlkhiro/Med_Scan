@@ -9,11 +9,11 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
       manifest: {
-        name: 'Med Scan',
+        name: 'PharmaCare Med Scan',
         short_name: 'Med Scan',
         description: 'Barcode lookup for trusted medicine product details.',
-        theme_color: '#0f766e',
-        background_color: '#f8fafc',
+        theme_color: '#123f2d',
+        background_color: '#f5faf8',
         display: 'standalone',
         start_url: '/',
         scope: '/',
@@ -28,7 +28,7 @@ export default defineConfig({
       },
       workbox: {
         cleanupOutdatedCaches: true,
-        globPatterns: ['**/*.{js,css,html,svg,webmanifest}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,webmanifest}'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/admin\/?/],
         runtimeCaching: [],

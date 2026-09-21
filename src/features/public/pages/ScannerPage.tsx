@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Flashlight, FlashlightOff, RotateCcw, ScanLine } from 'lucide-react';
+import { Camera, Flashlight, FlashlightOff, RotateCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { isSupabaseConfigured } from '../../../config/env';
+import { BrandLockup } from '../../../shared/brand';
 import { Button, ErrorState, LoadingState, StatusBadge } from '../../../shared/ui';
 
 type ScannerState = 'loading' | 'ready' | 'scanning' | 'found' | 'error';
@@ -334,18 +335,12 @@ export function ScannerPage() {
   }[scannerState];
 
   return (
-    <section className="mx-auto flex h-[100dvh] w-full max-w-xl flex-col overflow-hidden px-5 py-5">
+    <section className="mx-auto flex min-h-[calc(100dvh-5.5rem)] w-full max-w-xl flex-col overflow-hidden px-5 py-5">
       <header className="mb-4 flex flex-none items-center justify-between">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-palm">Med Scan</p>
-          <h1 className="text-2xl font-bold">Scan product barcode</h1>
-        </div>
-        <div className="grid h-11 w-11 place-items-center rounded-full bg-palm text-white shadow-sm">
-          <ScanLine aria-hidden="true" size={24} />
-        </div>
+        <BrandLockup compact subtitle="Scan product barcode" />
       </header>
 
-      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-lg bg-ink text-white shadow-xl">
+      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-lg bg-ink text-white shadow-xl ring-4 ring-aqua/20">
         <video
           aria-label="Barcode scanner camera preview"
           autoPlay
@@ -354,7 +349,7 @@ export function ScannerPage() {
           playsInline
           ref={videoRef}
         />
-        <div className="absolute inset-0 bg-black/25" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,63,45,0.12)_0%,rgba(16,36,31,0.28)_100%)]" />
         {torchSupported ? (
           <button
             aria-label={torchEnabled ? 'Turn flashlight off' : 'Turn flashlight on'}
@@ -368,10 +363,10 @@ export function ScannerPage() {
           </button>
         ) : null}
         <div
-          className="relative aspect-[3/4] h-[min(100%,26rem)] max-h-[calc(100%-2rem)] max-w-[min(20rem,80vw)] rounded-lg border-2 border-white/75 shadow-[0_0_0_999px_rgba(15,23,42,0.28)]"
+          className="relative aspect-[3/4] h-[min(100%,26rem)] max-h-[calc(100%-2rem)] max-w-[min(20rem,80vw)] rounded-lg border-2 border-aqua/80 shadow-[0_0_0_999px_rgba(18,63,45,0.28),0_0_26px_rgba(34,199,204,0.35)]"
           ref={guideRef}
         >
-          <div className="absolute left-5 right-5 top-1/2 h-0.5 bg-coral shadow-[0_0_18px_rgba(220,107,79,0.85)]" />
+          <div className="absolute left-5 right-5 top-1/2 h-0.5 bg-coral shadow-[0_0_18px_rgba(231,53,79,0.85)]" />
           {scannerState === 'loading' ? (
             <div className="absolute inset-x-5 top-1/2 mt-8">
               <LoadingState label="Starting camera" />

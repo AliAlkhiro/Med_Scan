@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
   <title id="title">Med Scan app icon</title>
-  <rect width="512" height="512" rx="96" fill="#0f766e" />
+  <rect width="512" height="512" rx="96" fill="#123f2d" />
   <path fill="#f8fafc" d="M160 118h192c24.3 0 44 19.7 44 44v188c0 24.3-19.7 44-44 44H160c-24.3 0-44-19.7-44-44V162c0-24.3 19.7-44 44-44Zm0 36c-4.4 0-8 3.6-8 8v188c0 4.4 3.6 8 8 8h192c4.4 0 8-3.6 8-8V162c0-4.4-3.6-8-8-8H160Z" />
   <path fill="#f8fafc" d="M188 196h136v32H188v-32Zm0 56h136v32H188v-32Zm0 56h86v32h-86v-32Z" />
-  <path fill="#99f6e4" d="M330 302h-28v-28h-32v28h-28v32h28v28h32v-28h28v-32Z" />
+  <path fill="#22c7cc" d="M330 302h-28v-28h-32v28h-28v32h28v28h32v-28h28v-32Z" />
 </svg>

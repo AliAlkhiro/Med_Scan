@@ -5,7 +5,7 @@ import { cx } from './cx';
 type Tone = 'primary' | 'secondary' | 'danger' | 'ghost';
 
 const toneClasses: Record<Tone, string> = {
-  primary: 'bg-palm text-white hover:bg-teal-800 focus-visible:ring-palm',
+  primary: 'bg-[linear-gradient(135deg,#123f2d_0%,#156a53_68%,#22c7cc_100%)] text-white shadow-sm hover:brightness-105 focus-visible:ring-aqua',
   secondary: 'bg-white text-ink ring-1 ring-slate-200 hover:bg-slate-50 focus-visible:ring-palm',
   danger: 'bg-coral text-white hover:bg-red-700 focus-visible:ring-coral',
   ghost: 'bg-transparent text-slate-700 hover:bg-slate-100 focus-visible:ring-palm',
@@ -128,9 +128,9 @@ type StatusTone = 'draft' | 'published' | 'neutral' | 'warning';
 
 const statusClasses: Record<StatusTone, string> = {
   draft: 'bg-slate-100 text-slate-700 ring-slate-200',
-  published: 'bg-teal-50 text-palm ring-teal-100',
+  published: 'bg-aqua/10 text-palm ring-aqua/25',
   neutral: 'bg-white text-slate-700 ring-slate-200',
-  warning: 'bg-orange-50 text-orange-800 ring-orange-100',
+  warning: 'bg-blush text-coral ring-coral/15',
 };
 
 export function StatusBadge({ children, tone = 'neutral' }: { children: ReactNode; tone?: StatusTone }) {
