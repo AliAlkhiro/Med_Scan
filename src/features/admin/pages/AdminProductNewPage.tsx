@@ -19,10 +19,10 @@ export function AdminProductNewPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-xl font-bold">New product</h2>
-          <p className="mt-1 text-sm text-slate-600">Create a draft or publish once the required lookup fields are ready.</p>
+          <p className="mt-1 text-sm text-white/60">Create a draft or publish once the required lookup fields are ready.</p>
         </div>
         <Link
-          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-semibold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50"
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-white/10 px-3 py-2 text-sm font-semibold text-white/80 ring-1 ring-white/10 hover:bg-white/15 hover:text-white"
           to="/admin/products"
         >
           <ArrowLeft aria-hidden="true" size={17} />

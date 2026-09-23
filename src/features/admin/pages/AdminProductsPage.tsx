@@ -41,18 +41,11 @@ export function AdminProductsPage() {
 
   return (
     <section className="grid gap-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
         <div>
           <h2 className="text-xl font-bold">Products</h2>
-          <p className="mt-1 text-sm text-slate-600">Manage product records and publication status.</p>
+          <p className="mt-1 text-sm text-white/60">Manage product records and publication status.</p>
         </div>
-        <Link
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white"
-          to="/admin/products/new"
-        >
-          <Plus aria-hidden="true" size={18} />
-          New product
-        </Link>
       </div>
 
       {isLoading ? <LoadingState label="Loading products" /> : null}
@@ -73,7 +66,7 @@ export function AdminProductsPage() {
         <EmptyState
           action={
             <Link
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-palm px-4 py-2 text-sm font-semibold text-white"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[linear-gradient(135deg,#123f2d_0%,#156a53_68%,#22c7cc_100%)] px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:brightness-105"
               to="/admin/products/new"
             >
               <Plus aria-hidden="true" size={18} />
@@ -86,14 +79,14 @@ export function AdminProductsPage() {
       ) : null}
 
       {!isLoading && !error && products.length > 0 ? (
-        <div className="overflow-hidden rounded-md bg-white shadow-sm">
-          <div className="hidden grid-cols-[minmax(0,1fr)_160px_160px_120px] gap-4 border-b border-slate-200 px-4 py-3 text-sm font-semibold text-slate-600 md:grid">
+        <div className="admin-panel overflow-hidden rounded-xl">
+          <div className="hidden grid-cols-[minmax(0,1fr)_160px_160px_120px] gap-4 border-b border-white/10 px-4 py-3 text-sm font-semibold text-white/60 md:grid">
             <span>Product</span>
             <span>Last reviewed</span>
             <span>Updated</span>
             <span className="text-right">Status</span>
           </div>
-          <div className="divide-y divide-slate-200">
+          <div className="divide-y divide-white/10">
             {products.map((product) => (
               <article
                 className="grid gap-3 px-4 py-4 md:grid-cols-[minmax(0,1fr)_160px_160px_120px] md:items-center md:gap-4"
@@ -102,27 +95,27 @@ export function AdminProductsPage() {
                 <div className="min-w-0">
                   <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
                     <Link
-                      className="truncate font-semibold text-ink underline-offset-4 hover:text-palm hover:underline"
+                      className="truncate font-semibold text-white underline-offset-4 hover:text-aqua hover:underline"
                       to={`/admin/products/${product.id}`}
                     >
                       {product.tradeName}
                     </Link>
                     <Link
                       aria-label={`Edit ${product.tradeName}`}
-                      className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-palm"
+                      className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-md text-white/50 transition hover:bg-white/10 hover:text-aqua"
                       to={`/admin/products/${product.id}`}
                     >
                       <Edit3 aria-hidden="true" size={16} />
                     </Link>
                   </div>
-                  <p className="mt-1 text-sm text-slate-500">{product.genericName || 'No generic name recorded'}</p>
+                  <p className="mt-1 text-sm text-white/50">{product.genericName || 'No generic name recorded'}</p>
                 </div>
-                <div className="text-sm text-slate-600">
-                  <span className="font-semibold text-slate-500 md:hidden">Last reviewed: </span>
+                <div className="text-sm text-white/65">
+                  <span className="font-semibold text-white/50 md:hidden">Last reviewed: </span>
                   {formatAdminDate(product.lastReviewedAt)}
                 </div>
-                <div className="text-sm text-slate-600">
-                  <span className="font-semibold text-slate-500 md:hidden">Updated: </span>
+                <div className="text-sm text-white/65">
+                  <span className="font-semibold text-white/50 md:hidden">Updated: </span>
                   {formatAdminDate(product.updatedAt)}
                 </div>
                 <div className="md:text-right">

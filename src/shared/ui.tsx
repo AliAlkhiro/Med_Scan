@@ -127,8 +127,8 @@ Select.displayName = 'Select';
 type StatusTone = 'draft' | 'published' | 'neutral' | 'warning';
 
 const statusClasses: Record<StatusTone, string> = {
-  draft: 'bg-slate-100 text-slate-700 ring-slate-200',
-  published: 'bg-aqua/10 text-palm ring-aqua/25',
+  draft: 'bg-slate-800 text-white ring-white/15',
+  published: 'bg-aqua/20 text-aqua ring-aqua/35',
   neutral: 'bg-white text-slate-700 ring-slate-200',
   warning: 'bg-blush text-coral ring-coral/15',
 };

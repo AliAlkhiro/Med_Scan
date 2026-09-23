@@ -1,7 +1,7 @@
 import { LogIn } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { BrandFooter, BrandLockup } from '../../../shared/brand';
+import { BrandFooter } from '../../../shared/brand';
 import { Button, ErrorState, TextInput } from '../../../shared/ui';
 import { useAdminAuth } from '../auth/adminAuthContext';
 
@@ -36,12 +36,23 @@ export function AdminLoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-[linear-gradient(135deg,#f3faf7_0%,#eef7ff_52%,#fff1f3_100%)] text-ink">
+    <div className="admin-surface relative isolate flex min-h-screen flex-col overflow-hidden bg-[radial-gradient(circle_at_50%_0%,rgba(34,199,204,0.18)_0%,rgba(18,63,45,0.22)_28%,transparent_52%),linear-gradient(135deg,#061512_0%,#10241f_48%,#07100e_100%)] text-white">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.08]"
+        style={{
+          backgroundImage: 'url("/pharmacare-mark-pattern-tile.png")',
+          backgroundPosition: '1.85rem 5.5rem',
+          backgroundRepeat: 'repeat',
+          backgroundSize: '3.4rem auto',
+        }}
+      />
       <main className="grid flex-1 place-items-center px-5 py-8">
-        <section className="w-full max-w-md rounded-md border border-aqua/20 bg-white/95 p-6 shadow-sm">
+        <section className="w-full max-w-md rounded-xl border border-white/10 bg-ink/85 p-6 shadow-xl backdrop-blur-md">
           <div className="mb-5">
-            <BrandLockup compact subtitle="Admin login" />
-            <p className="mt-4 text-sm text-slate-600">Sign in with an admin account to manage product records.</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-aqua">Admin login</p>
+            <h1 className="mt-2 text-2xl font-bold text-white">MedScan Admin</h1>
+            <p className="mt-3 text-sm text-white/65">Sign in with an admin account to manage product records.</p>
           </div>
           <form className="grid gap-4" onSubmit={handleSubmit}>
             <TextInput
@@ -71,7 +82,7 @@ export function AdminLoginPage() {
           </form>
         </section>
       </main>
-      <BrandFooter />
+      <BrandFooter tone="dark" />
     </div>
   );
 }

@@ -15,3 +15,71 @@ body {
 a {
   text-decoration: none;
 }
+
+@keyframes scanner-sweep {
+  0% {
+    transform: translateY(-115%);
+    opacity: 0;
+  }
+
+  12%,
+  88% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(115%);
+    opacity: 0;
+  }
+}
+
+.scanner-sweep {
+  animation: scanner-sweep 3.6s ease-in-out infinite;
+}
+
+.admin-surface {
+  color: rgb(255 255 255 / 0.9);
+}
+
+.admin-surface h2,
+.admin-surface h3 {
+  color: rgb(255 255 255 / 0.95);
+}
+
+.admin-surface form > section,
+.admin-surface form > div:first-child,
+.admin-panel {
+  border: 1px solid rgb(255 255 255 / 0.1);
+  background: rgb(16 36 31 / 0.82);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 0.22), inset 0 0 28px rgb(34 199 204 / 0.06);
+  backdrop-filter: blur(12px);
+}
+
+.admin-surface form > section p,
+.admin-surface form > div:first-child span,
+.admin-surface label,
+.admin-surface .admin-muted {
+  color: rgb(255 255 255 / 0.65);
+}
+
+.admin-surface form > section > div:first-child p {
+  color: rgb(255 255 255 / 0.55);
+}
+
+.admin-surface form input,
+.admin-surface form textarea,
+.admin-surface form select {
+  border-color: rgb(255 255 255 / 0.16);
+  background: rgb(255 255 255 / 0.94);
+  color: #10241f;
+}
+
+.admin-surface form input::placeholder,
+.admin-surface form textarea::placeholder {
+  color: rgb(100 116 139 / 0.75);
+}
+
+.admin-surface form > section [class*='bg-slate-50'] {
+  border-color: rgb(255 255 255 / 0.1);
+  background: rgb(255 255 255 / 0.06);
+}

@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { AlertTriangle, ExternalLink, FileText, Image, Link as LinkIcon, LoaderCircle, RotateCcw, Video } from 'lucide-react';
 import { Link, useLoaderData } from 'react-router-dom';
 import { isSupabaseConfigured } from '../../../config/env';
-import { BrandLockup } from '../../../shared/brand';
-import { Button, ErrorState, StatusBadge } from '../../../shared/ui';
+import { Button, ErrorState } from '../../../shared/ui';
 import {
   getAttachmentOpenUrl,
   recordAttachmentOpenMetric,
@@ -31,6 +30,8 @@ const detailFields: Array<{ key: keyof ProductLookupDetails; label: string }> = 
   { key: 'applicationInstructions', label: 'Application' },
   { key: 'extraNotes', label: 'Notes' },
 ];
+
+const panelClasses = 'rounded-xl border border-white/10 bg-ink/85 p-5 text-white shadow-xl backdrop-blur-md';
 
 function formatDate(value: string | null) {
   if (!value) {
@@ -127,7 +128,7 @@ function AttachmentOpenButton({
     <div className="grid justify-items-end gap-1">
       <Button
         aria-label={`Open ${attachment.label}`}
-        className="min-h-10 px-3"
+        className="min-h-10 border-white/15 bg-white/10 px-3 text-white hover:bg-white/20"
         disabled={isOpening}
         icon={
           isOpening ? (
@@ -137,7 +138,6 @@ function AttachmentOpenButton({
           )
         }
         onClick={handleOpenAttachment}
-        tone="secondary"
       >
         Open
       </Button>
@@ -163,8 +163,8 @@ function FieldList({
     <dl className="grid gap-3">
       {visibleFields.map((field) => (
         <div className="grid gap-1" key={field.key}>
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{field.label}</dt>
-          <dd className="text-sm leading-6 text-ink">{field.value}</dd>
+          <dt className="text-xs font-semibold uppercase tracking-wide text-aqua/80">{field.label}</dt>
+          <dd className="text-sm leading-6 text-white/85">{field.value}</dd>
         </div>
       ))}
     </dl>
@@ -193,20 +193,24 @@ export function ProductPage() {
   const hasReferenceNotes = getVisibleFields(detailFields, product).length > 0 || reviewedAt !== null;
 
   return (
-    <section className="mx-auto flex min-h-[calc(100dvh-5.5rem)] w-full max-w-xl flex-col gap-5 px-5 py-6">
-      <header>
-        <BrandLockup compact subtitle="Product details" />
-        <h1 className="mt-1 text-2xl font-bold">{product.tradeName}</h1>
-        <p className="mt-2 text-sm text-slate-600">Barcode {barcode}</p>
+    <section className="mx-auto flex min-h-full w-full max-w-xl flex-col gap-4 px-5 py-5">
+      <header className="rounded-xl bg-[linear-gradient(90deg,rgba(34,199,204,0.84)_0%,rgba(255,255,255,0.42)_50%,rgba(231,53,79,0.58)_100%)] p-[3px] shadow-xl">
+        <div className="rounded-[0.625rem] border border-white/10 bg-ink/90 px-5 py-5 text-white shadow-[inset_0_0_28px_rgba(34,199,204,0.08)] backdrop-blur-md">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-aqua">Product details</p>
+            <h1 className="mt-2 text-2xl font-bold leading-tight">{product.tradeName}</h1>
+            <p className="mt-2 break-all font-mono text-sm text-white/60">Barcode {barcode}</p>
+          </div>
+        </div>
       </header>
 
       {isCached ? (
-        <div className="rounded-md border border-orange-200 bg-orange-50 px-4 py-3 text-orange-900">
+        <div className="rounded-lg border border-coral/25 bg-coral/10 px-4 py-3 text-white">
           <div className="flex gap-3">
-            <AlertTriangle aria-hidden="true" className="mt-0.5 h-5 w-5 flex-none" />
+            <AlertTriangle aria-hidden="true" className="mt-0.5 h-5 w-5 flex-none text-coral" />
             <div>
               <p className="text-sm font-bold">Showing cached product details</p>
-              <p className="mt-1 text-sm leading-6">
+              <p className="mt-1 text-sm leading-6 text-white/70">
                 The live lookup could not be completed. Use these details as stale cached content
                 {cachedAtLabel ? ` from ${cachedAtLabel}` : ''}.
               </p>
@@ -215,26 +219,25 @@ export function ProductPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 rounded-md border border-aqua/20 bg-white/95 p-5 shadow-sm">
+      <div className={`grid gap-4 ${panelClasses}`}>
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-bold">Key details</h2>
-          <StatusBadge tone="published">Published</StatusBadge>
         </div>
         <FieldList fields={primaryFields} product={product} />
       </div>
 
       {hasReferenceNotes ? (
-        <div className="grid gap-4 rounded-md border border-aqua/20 bg-white/95 p-5 shadow-sm">
+        <div className={`grid gap-4 ${panelClasses}`}>
           <h2 className="text-lg font-bold">Reference notes</h2>
           <FieldList fields={detailFields} product={product} />
           {reviewedAt ? (
-            <p className="border-t border-slate-100 pt-3 text-sm text-slate-500">Last reviewed {reviewedAt}</p>
+            <p className="border-t border-white/10 pt-3 text-sm text-white/50">Last reviewed {reviewedAt}</p>
           ) : null}
         </div>
       ) : null}
 
       {product.attachments.length > 0 ? (
-        <div className="grid gap-3 rounded-md border border-aqua/20 bg-white/95 p-5 shadow-sm">
+        <div className={`grid gap-3 ${panelClasses}`}>
           <h2 className="text-lg font-bold">Attachments</h2>
           <div className="grid gap-2">
             {product.attachments.map((attachment) => {
@@ -242,16 +245,16 @@ export function ProductPage() {
 
               return (
                 <div
-                  className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-3 py-3"
+                  className="flex items-center justify-between gap-3 rounded-md border border-white/10 bg-white/5 px-3 py-3"
                   key={attachment.id}
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <span className="grid h-9 w-9 flex-none place-items-center rounded-md bg-aqua/10 text-palm">
+                    <span className="grid h-9 w-9 flex-none place-items-center rounded-md bg-aqua/10 text-aqua">
                       {attachmentIcon(attachment.type)}
                     </span>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-ink">{attachment.label}</p>
-                      <p className="text-xs uppercase tracking-wide text-slate-500">
+                      <p className="truncate text-sm font-semibold text-white">{attachment.label}</p>
+                      <p className="text-xs uppercase tracking-wide text-white/50">
                         {[attachment.type, fileSize].filter(Boolean).join(' · ')}
                       </p>
                     </div>
@@ -265,7 +268,7 @@ export function ProductPage() {
       ) : null}
 
       <Link
-        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-palm px-4 py-3 text-center font-semibold text-white"
+        className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[linear-gradient(135deg,#123f2d_0%,#156a53_68%,#22c7cc_100%)] px-4 py-3 text-center font-semibold text-white shadow-lg transition hover:brightness-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-aqua focus-visible:ring-offset-2 focus-visible:ring-offset-ink"
         to="/"
       >
         <RotateCcw aria-hidden="true" size={18} />
@@ -277,22 +280,26 @@ export function ProductPage() {
 
 export function ProductPageError() {
   return (
-    <section className="mx-auto flex min-h-[calc(100dvh-5.5rem)] w-full max-w-xl flex-col justify-center gap-5 px-5 py-6">
-      <ErrorState
-        action={
-          <Link to="/">
-            <Button icon={<RotateCcw aria-hidden="true" size={17} />} tone="secondary">
-              Scan another product
-            </Button>
-          </Link>
-        }
-        message={
-          isSupabaseConfigured
-            ? 'The product lookup could not be completed. Check the connection and try again.'
-            : 'Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before looking up products.'
-        }
-        title="Lookup unavailable"
-      />
+    <section className="mx-auto flex h-full w-full max-w-xl flex-col justify-center px-5 py-5">
+      <div className="rounded-xl bg-[linear-gradient(90deg,rgba(231,53,79,0.72)_0%,rgba(34,199,204,0.84)_100%)] p-[3px] shadow-xl">
+        <div className="grid gap-4 rounded-[0.625rem] border border-white/10 bg-ink/85 p-5 text-white shadow-[inset_0_0_28px_rgba(34,199,204,0.08)] backdrop-blur-md">
+          <ErrorState
+            action={
+              <Link to="/">
+                <Button icon={<RotateCcw aria-hidden="true" size={17} />}>
+                  Scan another product
+                </Button>
+              </Link>
+            }
+            message={
+              isSupabaseConfigured
+                ? 'The product lookup could not be completed. Check the connection and try again.'
+                : 'Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before looking up products.'
+            }
+            title="Lookup unavailable"
+          />
+        </div>
+      </div>
     </section>
   );
 }

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Camera, Flashlight, FlashlightOff, RotateCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { isSupabaseConfigured } from '../../../config/env';
-import { BrandLockup } from '../../../shared/brand';
 import { Button, ErrorState, LoadingState, StatusBadge } from '../../../shared/ui';
 
 type ScannerState = 'loading' | 'ready' | 'scanning' | 'found' | 'error';
@@ -36,6 +35,42 @@ type WindowWithBarcodeDetector = Window & {
 };
 
 const barcodeDetectorFormats = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'];
+
+function delay(durationMs: number) {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, durationMs);
+  });
+}
+
+function waitForVideoMetadata(video: HTMLVideoElement, timeoutMs = 5000) {
+  if (video.videoWidth && video.videoHeight) {
+    return Promise.resolve(true);
+  }
+
+  return new Promise<boolean>((resolve) => {
+    let isSettled = false;
+
+    const finish = (isReady: boolean) => {
+      if (isSettled) {
+        return;
+      }
+
+      isSettled = true;
+      window.clearTimeout(timeout);
+      video.removeEventListener('loadedmetadata', handleReady);
+      video.removeEventListener('canplay', handleReady);
+      resolve(isReady);
+    };
+
+    const handleReady = () => {
+      finish(Boolean(video.videoWidth && video.videoHeight));
+    };
+
+    const timeout = window.setTimeout(() => finish(false), timeoutMs);
+    video.addEventListener('loadedmetadata', handleReady, { once: true });
+    video.addEventListener('canplay', handleReady, { once: true });
+  });
+}
 
 function createCanvas(width: number, height: number) {
   const canvas = document.createElement('canvas');
@@ -114,6 +149,13 @@ async function detectBarcodeNatively(canvases: HTMLCanvasElement[]) {
 }
 
 function getCameraErrorDetails(error: unknown): CameraErrorDetails {
+  if (error instanceof Error && error.message === 'Camera metadata did not load.') {
+    return {
+      message: 'Camera permission was granted, but the preview did not load.',
+      recovery: 'Refresh the page or tap retry camera. If another app is using the camera, close it first.',
+    };
+  }
+
   if (error instanceof DOMException) {
     if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
       return {
@@ -192,9 +234,19 @@ export function ScannerPage() {
           return;
         }
 
+        const video = videoRef.current;
         streamRef.current = stream;
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        video.muted = true;
+        video.playsInline = true;
+        video.srcObject = stream;
+        await Promise.race([video.play().catch(() => undefined), delay(1500)]);
+        const hasVideoMetadata = await waitForVideoMetadata(video);
+
+        if (!hasVideoMetadata) {
+          throw new Error('Camera metadata did not load.');
+        }
+
+        void video.play().catch(() => undefined);
 
         if (isMounted) {
           const videoTrack = stream.getVideoTracks()[0];
@@ -257,6 +309,15 @@ export function ScannerPage() {
 
     if (!video || !guide || scanLockedRef.current || scannerState !== 'ready') {
       return;
+    }
+
+    if (video.paused) {
+      try {
+        await video.play();
+      } catch {
+        setScanError('Camera preview is paused. Tap retry camera and allow playback.');
+        return;
+      }
     }
 
     if (!video.videoWidth || !video.videoHeight) {
@@ -330,82 +391,88 @@ export function ScannerPage() {
     error: 'Camera unavailable',
     found: 'Barcode found',
     loading: 'Starting camera',
-    ready: 'Ready',
+    ready: 'Scan barcode',
     scanning: 'Checking photo',
   }[scannerState];
 
   return (
-    <section className="mx-auto flex min-h-[calc(100dvh-5.5rem)] w-full max-w-xl flex-col overflow-hidden px-5 py-5">
-      <header className="mb-4 flex flex-none items-center justify-between">
-        <BrandLockup compact subtitle="Scan product barcode" />
-      </header>
-
-      <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-lg bg-ink text-white shadow-xl ring-4 ring-aqua/20">
-        <video
-          aria-label="Barcode scanner camera preview"
-          autoPlay
-          className="absolute inset-0 h-full w-full object-cover"
-          muted
-          playsInline
-          ref={videoRef}
-        />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,63,45,0.12)_0%,rgba(16,36,31,0.28)_100%)]" />
-        {torchSupported ? (
-          <button
-            aria-label={torchEnabled ? 'Turn flashlight off' : 'Turn flashlight on'}
-            className="absolute right-4 top-4 z-10 grid h-12 w-12 place-items-center rounded-full bg-white/95 text-ink shadow-lg ring-1 ring-white/30 transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-palm focus-visible:ring-offset-2 focus-visible:ring-offset-ink disabled:opacity-60"
-            disabled={scannerState !== 'ready'}
-            onClick={toggleTorch}
-            title={torchEnabled ? 'Turn flashlight off' : 'Turn flashlight on'}
-            type="button"
-          >
-            {torchEnabled ? <FlashlightOff aria-hidden="true" size={22} /> : <Flashlight aria-hidden="true" size={22} />}
-          </button>
-        ) : null}
-        <div
-          className="relative aspect-[3/4] h-[min(100%,26rem)] max-h-[calc(100%-2rem)] max-w-[min(20rem,80vw)] rounded-lg border-2 border-aqua/80 shadow-[0_0_0_999px_rgba(18,63,45,0.28),0_0_26px_rgba(34,199,204,0.35)]"
-          ref={guideRef}
-        >
-          <div className="absolute left-5 right-5 top-1/2 h-0.5 bg-coral shadow-[0_0_18px_rgba(231,53,79,0.85)]" />
-          {scannerState === 'loading' ? (
-            <div className="absolute inset-x-5 top-1/2 mt-8">
-              <LoadingState label="Starting camera" />
-            </div>
-          ) : null}
-          <div className="absolute inset-x-0 bottom-5 flex justify-center">
+    <section className="mx-auto flex h-full w-full max-w-xl flex-col overflow-hidden px-5 py-3">
+      <div className="min-h-0 flex-1 rounded-xl bg-[linear-gradient(90deg,rgba(231,53,79,0.82)_0%,rgba(34,199,204,0.92)_30%,rgba(255,255,255,0.72)_50%,rgba(34,199,204,0.92)_70%,rgba(231,53,79,0.82)_100%)] p-[3px] shadow-xl">
+        <div className="relative flex h-full min-h-0 items-center justify-center overflow-hidden rounded-[0.625rem] bg-ink text-white">
+          <video
+            aria-label="Barcode scanner camera preview"
+            autoPlay
+            className="absolute inset-0 h-full w-full object-cover"
+            muted
+            playsInline
+            ref={videoRef}
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,63,45,0.12)_0%,rgba(16,36,31,0.28)_100%)]" />
+          <div className="absolute left-4 top-4 z-10 rounded-lg border border-white/15 bg-ink/35 p-2 shadow-xl backdrop-blur-md">
             <StatusBadge tone={scannerState === 'error' ? 'warning' : scannerState === 'found' ? 'published' : 'neutral'}>
               {statusLabel}
             </StatusBadge>
+          </div>
+          {scannerState !== 'error' ? (
+            <div className="absolute inset-x-4 bottom-4 z-10 flex justify-center">
+              <Button
+                className="min-h-12 min-w-44 border border-white/15 bg-white/15 px-5 text-white shadow-lg backdrop-blur-md hover:bg-white/25 focus-visible:ring-aqua focus-visible:ring-offset-ink"
+                disabled={scannerState !== 'ready'}
+                icon={<Camera aria-hidden="true" size={18} />}
+                onClick={scanCurrentPhoto}
+              >
+                Capture photo
+              </Button>
+            </div>
+          ) : null}
+          {torchSupported ? (
+            <button
+              aria-label={torchEnabled ? 'Turn flashlight off' : 'Turn flashlight on'}
+              className="absolute right-4 top-4 z-10 grid h-12 w-12 place-items-center rounded-full border border-white/20 bg-white/15 text-white shadow-lg ring-1 ring-white/20 backdrop-blur-md transition hover:bg-white/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-aqua focus-visible:ring-offset-2 focus-visible:ring-offset-ink disabled:opacity-60"
+              disabled={scannerState !== 'ready'}
+              onClick={toggleTorch}
+              title={torchEnabled ? 'Turn flashlight off' : 'Turn flashlight on'}
+              type="button"
+            >
+              {torchEnabled ? <FlashlightOff aria-hidden="true" size={22} /> : <Flashlight aria-hidden="true" size={22} />}
+            </button>
+          ) : null}
+          <div
+            className="relative aspect-[3/4] h-[min(100%,24rem)] max-h-[calc(100%-6rem)] max-w-[min(18rem,76vw)] overflow-hidden rounded-lg border border-white/20 shadow-[0_0_0_999px_rgba(18,63,45,0.28),0_0_34px_rgba(34,199,204,0.28),inset_0_0_28px_rgba(34,199,204,0.12)]"
+            ref={guideRef}
+          >
+            <div className="scanner-sweep pointer-events-none absolute inset-x-0 top-0 h-full">
+              <div className="absolute left-4 right-4 top-1/2 h-px bg-aqua shadow-[0_0_18px_rgba(34,199,204,0.95),0_0_38px_rgba(231,53,79,0.45)]" />
+              <div className="absolute left-8 right-8 top-1/2 h-10 -translate-y-1/2 bg-[linear-gradient(180deg,transparent_0%,rgba(34,199,204,0.16)_48%,rgba(231,53,79,0.1)_52%,transparent_100%)]" />
+            </div>
+            <div className="absolute left-5 right-5 top-1/2 h-0.5 bg-coral shadow-[0_0_18px_rgba(231,53,79,0.85)]" />
+            <div aria-hidden="true" className="absolute left-0 top-0 h-12 w-12 border-l-2 border-t-2 border-aqua shadow-[-6px_-6px_18px_rgba(34,199,204,0.45)]" />
+            <div aria-hidden="true" className="absolute right-0 top-0 h-12 w-12 border-r-2 border-t-2 border-aqua shadow-[6px_-6px_18px_rgba(34,199,204,0.45)]" />
+            <div aria-hidden="true" className="absolute bottom-0 left-0 h-12 w-12 border-b-2 border-l-2 border-coral shadow-[-6px_6px_18px_rgba(231,53,79,0.38)]" />
+            <div aria-hidden="true" className="absolute bottom-0 right-0 h-12 w-12 border-b-2 border-r-2 border-coral shadow-[6px_6px_18px_rgba(231,53,79,0.38)]" />
+            {scannerState === 'loading' ? (
+              <div className="absolute inset-x-5 top-1/2 mt-8">
+                <LoadingState label="Starting camera" />
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
 
       {torchError ? (
-        <p className="mt-3 flex-none rounded-md bg-orange-50 px-3 py-2 text-sm font-medium text-orange-800 ring-1 ring-orange-100">
+        <p className="mt-2 flex-none rounded-md bg-orange-50 px-3 py-2 text-sm font-medium text-orange-800 ring-1 ring-orange-100">
           {torchError}
         </p>
       ) : null}
 
       {scanError ? (
-        <p className="mt-3 flex-none rounded-md bg-orange-50 px-3 py-2 text-sm font-medium text-orange-800 ring-1 ring-orange-100">
+        <p className="mt-2 flex-none rounded-md bg-orange-50 px-3 py-2 text-sm font-medium text-orange-800 ring-1 ring-orange-100">
           {scanError}
         </p>
       ) : null}
 
-      {scannerState !== 'error' ? (
-        <div className="mt-4 grid flex-none gap-3">
-          <Button
-            disabled={scannerState !== 'ready'}
-            icon={<Camera aria-hidden="true" size={18} />}
-            onClick={scanCurrentPhoto}
-          >
-            Scan photo
-          </Button>
-        </div>
-      ) : null}
-
       {scannerState === 'error' && (
-        <div className="mt-4 flex-none">
+        <div className="mt-2 flex-none">
           <ErrorState
             action={
               <Button icon={<RotateCcw aria-hidden="true" size={17} />} onClick={retryScanner} tone="secondary">
@@ -421,7 +488,7 @@ export function ScannerPage() {
       )}
 
       {!isSupabaseConfigured && (
-        <div className="mt-4 flex-none">
+        <div className="mt-2 flex-none">
           <ErrorState
             action={<Button icon={<RotateCcw aria-hidden="true" size={17} />} onClick={retryScanner} tone="secondary">Retry</Button>}
             message="Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY before connecting lookup data."
